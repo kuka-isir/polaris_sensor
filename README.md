@@ -22,4 +22,7 @@ If you have **multiple** rom files :
 rosrun polaris_sensor polaris_sensor _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0
 ```
 
+>Note: The rate is 60Hz.
+
+
 > Authors : Florian Richier, Antoine Hoarau
