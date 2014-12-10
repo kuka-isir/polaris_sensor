@@ -388,7 +388,10 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
         std::cout  << "substr "<< answer_tx.substr(index,7)<<std::endl;
         if(answer_tx.substr(index,7) == "MISSING"){
             std::cout << "Target "<<handle<<" MISSING"<<std::endl;
-            break;
+            // 01 MISSING000000310007DF1A
+            index += 23;
+            continue;
+            //break;
         }
 
         std::string q0 = answer_tx.substr(index,6);
