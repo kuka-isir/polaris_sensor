@@ -56,14 +56,14 @@ Polaris::Polaris()
 Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
 {
     if(!openPort(port,9600)){
-       std::cerr << "Could not open port "<<port<<" at BAUD9600"<< std::endl;
-       return;
+        std::cerr << "Could not open port "<<port<<" at BAUD9600"<< std::endl;
+        return;
     }
     setPolarisBaudRateTo(115200);
 
     if(!openPort(port,115200)){
-       std::cerr << "Could not open port "<<port<<" at BAUD115200"<< std::endl;
-       return;
+        std::cerr << "Could not open port "<<port<<" at BAUD115200"<< std::endl;
+        return;
     }
     std::cout << "Port open" << std::endl;
 
@@ -113,9 +113,8 @@ std::string Polaris::readUntilBXAnswerComplete()
 {
     std::string buffer;
     int sizeLimit = 100000;
-
     do {
-        buffer+=readUntilCR();
+        buffer+=m_port.read(1);
         if(buffer.size() >= 4 && sizeLimit==100000)
         {
             uint16_t reply_length;
@@ -148,7 +147,7 @@ bool Polaris::setPolarisBaudRateTo(unsigned long baudrate)
     if(int a = checkAnswer(answer_comm) > 0){
         std::cerr << "COMM Error : " << a << std::endl;
         return false;
-     }
+    }
     return true;
 }
 
@@ -165,24 +164,24 @@ bool Polaris::openPort(const std::string& portname, unsigned long baudrate)
     m_port.setFlowcontrol(serial::flowcontrol_hardware);
 
     try {
-       m_port.open();
-       m_port.write(" \r");
-       if(readUntilCR().size()==0)
-       {
-           std::cerr<<"Resetting baudrate"<<std::endl;
-           m_port.close();
-           m_port.setBaudrate(115200);
-           m_port.open();
-           setPolarisBaudRateTo(9600);
-           m_port.close();
-           m_port.setBaudrate(9600);
-           m_port.open();
-           m_port.write("\r");
-           return readUntilCR().find("ERROR")==0;
-       }
+        m_port.open();
+        m_port.write(" \r");
+        if(readUntilCR().size()==0)
+        {
+            std::cerr<<"Resetting baudrate"<<std::endl;
+            m_port.close();
+            m_port.setBaudrate(115200);
+            m_port.open();
+            setPolarisBaudRateTo(9600);
+            m_port.close();
+            m_port.setBaudrate(9600);
+            m_port.open();
+            m_port.write("\r");
+            return readUntilCR().find("ERROR")==0;
+        }
     } catch (serial::IOException &e) {
-      std::cerr << "Unhandled Exception: " << e.what() << std::endl;
-      return false;
+        std::cerr << "Unhandled Exception: " << e.what() << std::endl;
+        return false;
     }
     std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
     return true;
@@ -378,54 +377,55 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
     int nhandles = ascii2int(nhandlesBA[0])*16 + ascii2int(nhandlesBA[1]);
     std::cout << "Nhandles : "<<nhandles<<std::endl;
     int index = 2;
+
     for(int i = 0; i < nhandles; i++)
     {
+        bool missing = false;
         TransformationDataTX td = {0};
-
         int handle= atoi( answer_tx.substr(index,2).c_str() );
         std::cout << "handle : "<<answer_tx.substr(index,2)<<std::endl;
         index += 2;
         std::cout  << "substr "<< answer_tx.substr(index,7)<<std::endl;
         if(answer_tx.substr(index,7) == "MISSING"){
             std::cout << "Target "<<handle<<" MISSING"<<std::endl;
-            // 01 MISSING000000310007DF1A
-            index += 23;
-            continue;
-            //break;
+            missing = true;
+            index += 7;
         }
+        if(!missing){
+            std::string q0 = answer_tx.substr(index,6);
+            td.q0 = PortHandle2int(q0,10)/10000.0;
+            index += 6;
 
-        std::string q0 = answer_tx.substr(index,6);
-        td.q0 = PortHandle2int(q0,10)/10000.0;
-        index += 6;
+            std::string qx = answer_tx.substr(index,6);
+            td.qx = PortHandle2int(qx,10)/10000.0;
+            index += 6;
 
-        std::string qx = answer_tx.substr(index,6);
-        td.qx = PortHandle2int(qx,10)/10000.0;
-        index += 6;
+            std::string qy = answer_tx.substr(index,6);
+            td.qy = PortHandle2int(qy,10)/10000.0;
+            index += 6;
 
-        std::string qy = answer_tx.substr(index,6);
-        td.qy = PortHandle2int(qy,10)/10000.0;
-        index += 6;
+            std::string qz = answer_tx.substr(index,6);
+            td.qz = PortHandle2int(qz,10)/10000.0;
+            index += 6;
 
-        std::string qz = answer_tx.substr(index,6);
-        td.qz = PortHandle2int(qz,10)/10000.0;
-        index += 6;
+            std::string tx = answer_tx.substr(index,7);
+            td.tx = PortHandle2int(tx,10)/100000.0;
+            index += 7;
 
-        std::string tx = answer_tx.substr(index,7);
-        td.tx = PortHandle2int(tx,10)/100000.0;
-        index += 7;
+            std::string ty = answer_tx.substr(index,7);
+            td.ty = PortHandle2int(ty,10)/100000.0;
+            index += 7;
 
-        std::string ty = answer_tx.substr(index,7);
-        td.ty = PortHandle2int(ty,10)/100000.0;
-        index += 7;
+            std::string tz = answer_tx.substr(index,7);
+            td.tz = PortHandle2int(tz,10)/100000.0;
+            index += 7;
 
-        std::string tz = answer_tx.substr(index,7);
-        td.tz = PortHandle2int(tz,10)/100000.0;
-        index += 7;
-
-        std::string error = answer_tx.substr(index,6);
-        td.error = PortHandle2int(error,10)/10000.0;
-        index += 6;
-
+            std::string error = answer_tx.substr(index,6);
+            td.error = PortHandle2int(error,10)/10000.0;
+            index += 6;
+        }else{
+            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=0; // 0 is false
+        }
         std::string status = answer_tx.substr(index,8);
         td.status = status;
         index += 8;
@@ -445,9 +445,9 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
 {
     map.clear();
     static const std::string command_bx("BX 0001\r");
-     m_port.write(command_bx);
+    m_port.write(command_bx);
 
-    std::string answer_bx= readUntilCR(); //readUntilBXAnswerComplete();
+    std::string answer_bx= readUntilBXAnswerComplete();
     if(int a = checkAnswer(answer_bx) > 0)
         std::cerr << "BX Error : " << a << std::endl;
 
@@ -478,33 +478,41 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
 
         td.handleStatus = answer_bx.data()[index];
         index++;
-
-        if(td.handleStatus != 4)
+        float val=0.0; // TODO: Check on 32b machines
+        if(td.handleStatus != 4) // missing
         {
             if(td.handleStatus == 1)
             {
-                memcpy(&td.q0,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.q0 = val;
                 index += 4;
 
-                memcpy(&td.qx,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.qx = val;
                 index += 4;
 
-                memcpy(&td.qy,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.qy = val;
                 index += 4;
 
-                memcpy(&td.qz,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.qz = val;
                 index += 4;
 
-                memcpy(&td.tx,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.tx = val/1000.0;
                 index += 4;
 
-                memcpy(&td.ty,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.ty = val/1000.0;
                 index += 4;
 
-                memcpy(&td.tz,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.tz = val/1000.0;
                 index += 4;
 
-                memcpy(&td.error,&answer_bx.data()[index],4);
+                memcpy(&val,&answer_bx.data()[index],4);
+                td.error = val/1000.0;
                 index += 4;
             }
 
