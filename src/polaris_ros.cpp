@@ -50,12 +50,19 @@ int main(int argc, char **argv)
     {
         targets_pose.poses.clear();
         targets_cloud.points.clear();
-
+        /* Start TX */
         std::string status;
         std::map<int,TransformationDataTX> targets;
         polaris.readDataTX(status,targets);
 
         std::map<int,TransformationDataTX>::iterator it = targets.begin();
+
+        /* Start BX
+        uint16_t status;
+        std::map<int,TransformationDataBX> targets;
+        polaris.readDataBX(status,targets);
+
+        std::map<int,TransformationDataBX>::iterator it = targets.begin();*/
         for(;it!=targets.end();++it)
         {
             geometry_msgs::Pose pose;
