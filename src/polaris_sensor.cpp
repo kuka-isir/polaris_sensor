@@ -6,6 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <string>
 #include <bitset>
+#include <limits>
 
 void Polaris::removeChar(std::string& str,const char c) {
     str.erase( std::remove(str.begin(), str.end(), c), str.end() );
@@ -424,7 +425,7 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
             td.error = PortHandle2int(error,10)/10000.0;
             index += 6;
         }else{
-            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=0; // 0 is false
+            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=std::numeric_limits<float>::quiet_NaN(); // 0 is false
         }
         std::string status = answer_tx.substr(index,8);
         td.status = status;
