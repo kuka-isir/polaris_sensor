@@ -25,7 +25,7 @@ rostopic echo /polaris_sensor/targets
 
 #### RviZ
 
-##### (optional) Publish the polaris transform if not provided
+##### (optional) Publish the polaris transform if not calibrated
 ```bash
 rosrun tf static_transform_publisher 0 0 0 0 0 0 /world /polaris_link 100
 ```
@@ -38,4 +38,14 @@ rosrun rviz rviz
 ```
 
 
-
+#### Calibration
+##### ToDo on the Kuka PC
+* Turn ON the robot --> Joint values --> PC --> Orocos (RT) --> ROS
+* Launch the lbr4_state_publisher --> /joint_states
+* Launch the robot_state_publisher --> tf frames for all joints (/lbr4_1_link etc)
+* Launch the tf_to_pointstamped --> target_kuka (tf frame) --> /kuka/tooltip (PointStamped)
+##### ToDo on the Polaris PC
+* Launch the Polaris sensor with the kuka tooltip target --> /polaris_sensor/targets (PointArrayStamped)
+* Launch the polaris_listener --> /polaris_sensor/one_target (PointStamped)
+##### Calibration Node on Polaris PC
+* Launch compute_transform_6d --> Listens to /polaris_sensor/one_target and /kuka/tooltip and publishes the static transform beetween /base_link -> /polaris_link
