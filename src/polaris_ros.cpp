@@ -7,12 +7,23 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <algorithm>
+#include <fstream>
 
-using namespace boost;
-using namespace std;
+bool fexists(const std::string& filename) {
+  std::ifstream ifile(filename.c_str());
+  return ifile;
+}
 
 
-
+bool exists(const std::string& r)
+{
+    if(!fexists(r))
+    {
+        ROS_WARN("Rom %s doest not exists, skipping.",r.c_str());
+        return true;
+    }
+    return false;
+}
 
 int main(int argc, char **argv)
 {
@@ -45,16 +56,7 @@ int main(int argc, char **argv)
     boost::erase_all(tmp, " ");
     boost::split ( roms, tmp, boost::is_any_of(","));
 
-    roms.erase(std::remove_if(roms.begin(),roms.end(),
-                                [](std::string r)
-                                {
-                                    if(!boost::filesystem::exists(r))
-                                    {
-                                        ROS_WARN("Rom %s doest not exists, skipping.",r.c_str());
-                                        return true;
-                                    }
-                                    return false;
-                                }),
+    roms.erase(std::remove_if(roms.begin(),roms.end(),exists),
                    roms.end());
    if(roms.size() == 0)
    {

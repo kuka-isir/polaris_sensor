@@ -11,9 +11,9 @@ find_package(catkin REQUIRED COMPONENTS
   serial
 )
 
-list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS} -g -ftest-coverage -fprofile-arcs")
+#list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS} -g -ftest-coverage -fprofile-arcs")
 ## System dependencies are found with CMake's conventions
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost COMPONENTS system filesystem REQUIRED)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -96,11 +96,13 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(include)
 include_directories(
+  include
+  ${Boost_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
-add_library(polarislib
+add_library(polaris
    src/polaris_sensor.cpp
  )
 
@@ -112,8 +114,11 @@ add_executable(${PROJECT_NAME} src/polaris_ros.cpp)
 #add_dependencies(polaris_sensor_node polaris_sensor_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
+message(" b: ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_SYSTEM_LIBRARY}")
 target_link_libraries(${PROJECT_NAME}
-   ${catkin_LIBRARIES} ${Boost_LIBRARIES} polarislib
+   ${catkin_LIBRARIES}   ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_SYSTEM_LIBRARY}  polaris
  )
 
 #############
