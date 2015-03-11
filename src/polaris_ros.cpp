@@ -5,6 +5,8 @@
 #include <serial/serial.h>
 #include <polaris_sensor/polaris_sensor.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <algorithm>
 
 using namespace boost;
 using namespace std;
@@ -24,24 +26,49 @@ int main(int argc, char **argv)
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
-        ROS_WARN("Using default port %s",port.c_str());
+        ROS_WARN("Using default port: %s",port.c_str());
     else
-        ROS_INFO("Using port %s",port.c_str());
+        ROS_INFO("Using port: %s",port.c_str());
+
+    std::string camera("polaris");
+    if(!nh.getParam("camera",camera))
+        ROS_WARN("Using default camera name: %s",camera.c_str());
+    else
+        ROS_INFO("Using camera name: %s",camera.c_str());
 
     std::vector<std::string> roms;
     std::string tmp;
-    if(!nh.getParam ( "roms", tmp))
+    if(!nh.getParam ( "roms", tmp)){
         ROS_FATAL("No rom provided, exiting.");
+        return -1;
+    }
     boost::erase_all(tmp, " ");
     boost::split ( roms, tmp, boost::is_any_of(","));
+
+    roms.erase(std::remove_if(roms.begin(),roms.end(),
+                                [](std::string r)
+                                {
+                                    if(!boost::filesystem::exists(r))
+                                    {
+                                        ROS_WARN("Rom %s doest not exists, skipping.",r.c_str());
+                                        return true;
+                                    }
+                                    return false;
+                                }),
+                   roms.end());
+   if(roms.size() == 0)
+   {
+       ROS_FATAL("No roms could be loaded, exiting.");
+       return -2;
+   }
 
     Polaris polaris(port,roms);
 
     geometry_msgs::PoseArray targets_pose;
     sensor_msgs::PointCloud targets_cloud;
 
-    targets_cloud.header.frame_id = "/polaris_link";
-    targets_pose.header.frame_id = "/polaris_link";
+    targets_cloud.header.frame_id = "/"+camera+"_link";
+    targets_pose.header.frame_id = "/"+camera+"_link";
 
     ros::Rate loop_rate(100);
     int count = 0;
