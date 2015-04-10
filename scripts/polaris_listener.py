@@ -37,7 +37,7 @@ class PolarisListener:
         rospy.loginfo("Publishing to "+self.topic_out)
         
         self.pt_pub = rospy.Publisher(self.topic_out,PointStamped)
-        rospy.Subscriber(self.polaris_topic,PoseArray,self.callback)
+        rospy.Subscriber(self.polaris_topic,PoseArray,self.callback,queue_size=1)
 
     def start(self):
         rospy.spin()
