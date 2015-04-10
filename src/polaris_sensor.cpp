@@ -8,6 +8,9 @@
 #include <bitset>
 #include <limits>
 
+#define BAUD_RATE_INIT 9600
+#define BAUD_RATE_RUNNING 1228739
+
 void Polaris::removeChar(std::string& str,const char c) {
     str.erase( std::remove(str.begin(), str.end(), c), str.end() );
 }
@@ -56,46 +59,46 @@ Polaris::Polaris()
 }
 Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
 {
-    if(!openPort(port,9600)){
-        std::cerr << "Could not open port "<<port<<" at BAUD9600"<< std::endl;
+    if(!openPort(port,BAUD_RATE_INIT)){
+        std::cerr << "Could not open port "<<port<<" at "<<BAUD_RATE_INIT<< std::endl;
         return;
     }
-    setPolarisBaudRateTo(115200);
+    setPolarisBaudRateTo(BAUD_RATE_RUNNING);
 
-    if(!openPort(port,115200)){
-        std::cerr << "Could not open port "<<port<<" at BAUD115200"<< std::endl;
+    if(!openPort(port,BAUD_RATE_RUNNING)){
+        std::cerr << "Could not open port "<<port<<" at "<< BAUD_RATE_RUNNING << std::endl;
         return;
     }
-    std::cout << "Port open" << std::endl;
+    //std::cout << "Port open" << std::endl;
 
     init();
-    std::cout << "Init done" << std::endl;
+    //std::cout << "Init done" << std::endl;
     clearPortHandles();
-    std::cout << "Clear done" << std::endl;
+    //std::cout << "Clear done" << std::endl;
 
     for(size_t i=0;i<roms.size();++i)
     {
         const std::string handle = requestPortHandle();
-        std::cout << "Request done, handle: " << handle <<std::endl;
+        //std::cout << "Request done, handle: " << handle <<std::endl;
         loadROM(handle,roms[i]);
-        std::cout << "Load done" << std::endl;
+        //std::cout << "Load done" << std::endl;
 
         initPortHandle(handle);
-        std::cout << "Init port done" << std::endl;
+        //std::cout << "Init port done" << std::endl;
 
         enablePortHandle(handle,'D');
-        std::cout << "Enable port done" << std::endl;
+        //std::cout << "Enable port done" << std::endl;
 
-        std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
+        //std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
     }
 
     startTracking();
 }
 Polaris::~Polaris()
 {
-    std::cout<<"Stopping tracking"<<std::endl;
+    //std::cout<<"Stopping tracking"<<std::endl;
     stopTracking();
-    setPolarisBaudRateTo(9600);
+    setPolarisBaudRateTo(BAUD_RATE_INIT);
     if(m_port.isOpen())
         m_port.close();
 }
@@ -134,17 +137,40 @@ bool Polaris::setPolarisBaudRateTo(unsigned long baudrate)
     }
 
     std::string command_comm;
-    if(baudrate == 115200)
-        command_comm="COMM 50001\r";
-    else if(baudrate == 9600)
-        command_comm="COMM 00001\r";
-    else
+    switch(baudrate){
+    case 9600:
+        command_comm = "COMM 000001\r";
+        break;
+    case 14400:
+        command_comm = "COMM 100001\r";
+        break;
+    case 19200:
+        command_comm = "COMM 200001\r";
+        break;
+    case 38400:
+        command_comm = "COMM 300001\r";
+        break;
+    case 57600:
+        command_comm = "COMM 400001\r";
+        break;
+    case 115200:
+        command_comm = "COMM 500001\r";
+        break;
+    case 921600:
+        command_comm = "COMM 600001\r";
+        break;
+    case 1228739:
+        command_comm = "COMM 700001\r";
+        break;
+    default:
         std::cerr<<"Baudrate "<<baudrate<<" is not supported"<<std::endl;
+        break;
+    }
 
     size_t nwrite = m_port.write(command_comm);
 
     std::string answer_comm = readUntilCR();
-    std::cout<<"Set baud rate answer:"<<answer_comm<<std::endl;
+    //std::cout<<"Set baud rate answer:"<<answer_comm<<std::endl;
     if(int a = checkAnswer(answer_comm) > 0){
         std::cerr << "COMM Error : " << a << std::endl;
         return false;
@@ -169,13 +195,13 @@ bool Polaris::openPort(const std::string& portname, unsigned long baudrate)
         m_port.write(" \r");
         if(readUntilCR().size()==0)
         {
-            std::cerr<<"Resetting baudrate"<<std::endl;
+            //std::cout<<"Resetting baudrate"<<std::endl;
             m_port.close();
-            m_port.setBaudrate(115200);
+            m_port.setBaudrate(BAUD_RATE_RUNNING);
             m_port.open();
-            setPolarisBaudRateTo(9600);
+            setPolarisBaudRateTo(BAUD_RATE_INIT);
             m_port.close();
-            m_port.setBaudrate(9600);
+            m_port.setBaudrate(BAUD_RATE_INIT);
             m_port.open();
             m_port.write("\r");
             return readUntilCR().find("ERROR")==0;
@@ -184,7 +210,7 @@ bool Polaris::openPort(const std::string& portname, unsigned long baudrate)
         std::cerr << "Unhandled Exception: " << e.what() << std::endl;
         return false;
     }
-    std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
+    //std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
     return true;
 }
 
@@ -202,7 +228,7 @@ void Polaris::clearPortHandles()
 
     int nports = ascii2int(answer_phsr[0])*16 + ascii2int(answer_phsr[1]);
 
-    std::cout<<"Clear Port handle response : "<<answer_phsr<<std::endl<<" Number of ports : "<<nports<<std::endl;
+    //std::cout<<"Clear Port handle response : "<<answer_phsr<<std::endl<<" Number of ports : "<<nports<<std::endl;
     if(nports > 0)
     {
         for(int i = 0; i < nports; i++)
@@ -228,7 +254,7 @@ void Polaris::init()
     static const std::string cmd("INIT \r");
     size_t nwrite = m_port.write(cmd);
     std::string answer_init = readUntilCR();
-    std::cout << "Init response : "<<answer_init << std::endl;
+    //std::cout << "Init response : "<<answer_init << std::endl;
     if(int a = checkAnswer(answer_init) > 0)
         std::cerr << "INIT Error : " << a << std::endl;
 }
@@ -239,7 +265,7 @@ std::string Polaris::requestPortHandle()
     size_t nwrite = m_port.write(command_phrq);
     std::string handle;
     std::string answer_phrq = readUntilCR();
-    std::cout << "answer_phrq : "<<answer_phrq<<std::endl;
+    //std::cout << "answer_phrq : "<<answer_phrq<<std::endl;
     if(int a = checkAnswer(answer_phrq) > 0)
         std::cerr << "PHRQ Error : " << a << std::endl;
     else
@@ -251,7 +277,7 @@ std::string Polaris::requestPortHandle()
 
 bool Polaris::loadROM(const std::string& handle, std::string filename)
 {
-    std::cout << "Loading "<<filename<<std::endl;
+    //std::cout << "Loading "<<filename<<std::endl;
     std::ifstream file(filename.c_str(), std::ifstream::in);
     std::ostringstream data;
     unsigned char x;
@@ -298,11 +324,11 @@ bool Polaris::loadROM(const std::string& handle, std::string filename)
         command_pvwr += '\r';
         size_t nwrite = m_port.write(command_pvwr);
 
-        //std::cout<<"Writing "<<command_pvwr<<std::endl;
-        //std::cout<<"nwrite "<<nchunks<<" size :"<<buf.size()<<std::endl;
+        ////std::cout<<"Writing "<<command_pvwr<<std::endl;
+        ////std::cout<<"nwrite "<<nchunks<<" size :"<<buf.size()<<std::endl;
 
         std::string answer_pvwr = readUntilCR();
-        //std::cout<<"answer_pvwr "<<answer_pvwr<<std::endl;
+        ////std::cout<<"answer_pvwr "<<answer_pvwr<<std::endl;
 
         if(int a = checkAnswer(answer_pvwr) > 0)
             std::cerr << "PVWR Error : " << a << std::endl;
@@ -321,7 +347,7 @@ void Polaris::initPortHandle(const std::string& handle)
     size_t nwrite = m_port.write(command_pinit);
 
     std::string answer_pinit = readUntilCR();
-    std::cout << "Init Port Handle answer : "<<answer_pinit<< std::endl;
+    //std::cout << "Init Port Handle answer : "<<answer_pinit<< std::endl;
     if(int a = checkAnswer(answer_pinit) > 0)
         std::cerr << "PINIT Error : " << a << std::endl;
 }
@@ -347,8 +373,7 @@ void Polaris::startTracking()
     size_t nwrite = m_port.write(command_tstart);
 
     std::string answer_tstart = readUntilCR();
-    std::cout << (answer_tstart.find("OKAY")==0? "Starting tracking":
-                                                 "Error while startin tracking")<< std::endl;
+    //std::cout << (answer_tstart.find("OKAY")==0? "Starting tracking":"Error while startin tracking")<< std::endl;
     if(int a = checkAnswer(answer_tstart) > 0)
         std::cerr << "TSTART Error : " << a << std::endl;
 }
@@ -370,13 +395,13 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
     m_port.write(command_tx);
 
     std::string answer_tx = readUntilCR();
-    std::cout << "big answer : "<<answer_tx<<std::endl;
+    //std::cout << "big answer : "<<answer_tx<<std::endl;
     if(int a = checkAnswer(answer_tx) > 0)
         std::cerr << "TX Error : " << a << std::endl;
 
     std::string nhandlesBA = answer_tx.substr(0,2);
     int nhandles = ascii2int(nhandlesBA[0])*16 + ascii2int(nhandlesBA[1]);
-    std::cout << "Nhandles : "<<nhandles<<std::endl;
+    //std::cout << "Nhandles : "<<nhandles<<std::endl;
     int index = 2;
 
     for(int i = 0; i < nhandles; i++)
@@ -384,11 +409,11 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
         bool missing = false;
         TransformationDataTX td = {0};
         int handle= atoi( answer_tx.substr(index,2).c_str() );
-        std::cout << "handle : "<<answer_tx.substr(index,2)<<std::endl;
+        //std::cout << "handle : "<<answer_tx.substr(index,2)<<std::endl;
         index += 2;
-        std::cout  << "substr "<< answer_tx.substr(index,7)<<std::endl;
+        //std::cout  << "substr "<< answer_tx.substr(index,7)<<std::endl;
         if(answer_tx.substr(index,7) == "MISSING"){
-            std::cout << "Target "<<handle<<" MISSING"<<std::endl;
+            //std::cout << "Target "<<handle<<" MISSING"<<std::endl;
             missing = true;
             index += 7;
         }
@@ -422,10 +447,10 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
             index += 7;
 
             std::string error = answer_tx.substr(index,6);
-            td.error = PortHandle2int(error,10)/10000.0;
+            td.error = PortHandle2int(error,10)/1000000.0;
             index += 6;
         }else{
-            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=std::numeric_limits<float>::quiet_NaN(); // 0 is false
+            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=std::numeric_limits<float>::quiet_NaN(); // nan if not seen
         }
         std::string status = answer_tx.substr(index,8);
         td.status = status;
@@ -469,8 +494,8 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
 
     uint8_t nhandles = answer_bx.data()[6];
 
-    int index = 7;
-    for(int i = 0; i < nhandles; i++)
+    unsigned int index = 7;
+    for(unsigned int i = 0; i < nhandles; i++)
     {
         uint8_t nhandle = answer_bx.data()[index];
         index++;
@@ -479,52 +504,51 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
 
         td.handleStatus = answer_bx.data()[index];
         index++;
-        float val=0.0; // TODO: Check on 32b machines
-        if(td.handleStatus != 4) // missing
+        float val = 0.0;
+        if(td.handleStatus != 4 && td.handleStatus != 2 && td.handleStatus == 1) // Valid target, not missing nor disabled
         {
-            if(td.handleStatus == 1)
-            {
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.q0 = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.qx = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.qy = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.qz = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.tx = val/1000.0;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.ty = val/1000.0;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.tz = val/1000.0;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.error = val/1000.0;
-                index += 4;
-            }
-
-            memcpy(&td.portStatus,&answer_bx.data()[index],4);
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.q0 = val;
             index += 4;
 
-            memcpy(&td.number,&answer_bx.data()[index],4);
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.qx = val;
             index += 4;
 
-            map[nhandle] = td;
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.qy = val;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.qz = val;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.tx = val/1000.0;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.ty = val/1000.0;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.tz = val/1000.0;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.error = val/1000.0;
+            index += 4;
+        }else{
+            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=std::numeric_limits<float>::quiet_NaN(); // nan if not seen
         }
+
+        memcpy(&td.portStatus,&answer_bx.data()[index],4);
+        index += 4;
+
+        memcpy(&td.number,&answer_bx.data()[index],4);
+        index += 4;
+
+        map[nhandle] = td;
     }
     memcpy(&systemStatus,&answer_bx.data()[index],2);
     return;
