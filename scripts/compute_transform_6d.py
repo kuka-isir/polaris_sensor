@@ -10,6 +10,8 @@ import tf
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32
 from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import TransformStamped
 from threading import Thread
 import numpy as np 
 import sys
@@ -20,7 +22,39 @@ import message_filters
 from message_filters import TimeSynchronizer
 import itertools
 import time
-from threading import Lock
+from threading import Lock,Event
+
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
 
 class ApproximateTimeSynchronizer(TimeSynchronizer):
 
@@ -83,27 +117,38 @@ class TfBroadcasterThread(Thread):
         self.child_frame = child_frame
         self.parent_frame = parent_frame
         self.has_transformation=False
+        self.stamp = None
+        self.stop = Event()
         self.lock=Lock()
             
-    def set_transformation(self,translation,quaternion):
+    def set_transformation(self,translation,quaternion,stamp=None):
         self.lock.acquire()
         self.translation = translation
         self.quaternion = quaternion
+        if not stamp:
+            self.stamp = rospy.Time.now()
+        else:
+            self.stamp = stamp
+        if not self.has_transformation:
+            self.has_transformation =True
         self.lock.release()
-        self.has_transformation =True
+        
 
     def run(self):
+        r = rospy.Rate(100.0)
         while not rospy.is_shutdown():
             try:
                 if self.has_transformation:
-                    self.lock.acquire()
-                    self.tf_br.sendTransform(self.translation ,self.quaternion , rospy.Time.now(), self.child_frame,self.parent_frame)
-                    self.lock.release()
+                    if self.lock.acquire(False):
+                        self.tf_br.sendTransform(self.translation ,self.quaternion , rospy.Time.now(), self.child_frame,self.parent_frame)
+                        self.lock.release()
             except Exception,e:
-                print 'TfBroadcasterThread:',e
+                rospy.logerr('TfBroadcasterThread:'+str(e))
+                #return
+            r.sleep()
              
 class Estimator:
-    def __init__(self,topic_a,topic_b,child_frame,parent_frame,transform_name="calib_kinect",dist_min_between_pts=0.03,n_pts_to_start_calib=3):
+    def __init__(self,topic_a,topic_b,child_frame,parent_frame,transform_name="calib_kinect",dist_min_between_pts=0.03,n_pts_to_start_calib=3,slope=0.1,queue_size=10,output_file=None,enable_exact_timestamps=False):
         rospy.init_node("compute_transformation_6d")
         self.rate = rospy.Rate(100)
         self.topic_a = topic_a
@@ -111,36 +156,53 @@ class Estimator:
         self.child_frame = child_frame
         self.parent_frame = parent_frame
         self.pts_a = []
+        self.pta_stamp = None
+        self.ptb_stamp = None
         self.pts_b = []
-        self.init_tf_broadcaster()
+        self.start_tf_broadcaster()
         self.static_transform = []
-        self.init_subscribers()
+        self.init_subscribers(enable_exact_timestamps=enable_exact_timestamps,queue_size=100,slope=slope)
         self.transform_name = transform_name
         self.MIN_NUM_CALIB = n_pts_to_start_calib
         self.min_d = dist_min_between_pts
         self.lock=Lock()
+        self.do_calib = Event()
         self.cloud_a_pub = rospy.Publisher("/pointsA",PointCloud)
         self.cloud_b_pub = rospy.Publisher("/pointsB",PointCloud)
+        self.output_file_path = output_file
+        self.static_transform = None
+        self.translation = None
+        self.quaternion = None
+        self.open_last_calibration(output_file)
         
-    def init_subscribers(self):
+    def init_subscribers(self,enable_exact_timestamps=False,queue_size=1,slope=1.0):
         rospy.loginfo("Initializing subscribers")
         sub=[]
         sub.append(message_filters.Subscriber(self.topic_a, PointStamped))
         sub.append(message_filters.Subscriber(self.topic_b, PointStamped))
-        ts = ApproximateTimeSynchronizer(sub, 2,0.05)
+        rospy.loginfo("Listening to "+self.topic_a+" and "+self.topic_b)
+        if enable_exact_timestamps:
+            ts = TimeSynchronizer(sub, queue_size)
+        else:
+            ts = ApproximateTimeSynchronizer(sub, queue_size,slope)
+        rospy.loginfo("Queue size is "+str(queue_size)+", slope is "+str(slope))
         #ts.registerCallback(self.callback)        
         #ts = message_filters.TimeSynchronizer(sub, 20)
         ts.registerCallback(self.callback)
         
-    def init_tf_broadcaster(self):        
+    def start_tf_broadcaster(self):        
         rospy.loginfo("Initializing the Tf broadcaster")
         self.tf = tf.TransformListener()
         self.tf_thread = TfBroadcasterThread(self.parent_frame,self.child_frame)
+        self.tf_thread.start()
     
-    def publish_pointcloud(self,cloud,frame_out,cloud_publisher):
+    def publish_pointcloud(self,cloud,frame_out,cloud_publisher,stamp=None):
         cloud_out = PointCloud()
         cloud_out.header.frame_id = frame_out
-        cloud_out.header.stamp = rospy.Time.now()
+        if not stamp:
+            cloud_out.header.stamp = rospy.Time.now()
+        else:
+            cloud_out.header.stamp = stamp
         for p in cloud:
             p_out = Point32()
             p_out.x = p.item(0)
@@ -164,62 +226,137 @@ class Estimator:
         pta = [msg[0].point.x ,msg[0].point.y ,msg[0].point.z]
         ptb = [msg[1].point.x ,msg[1].point.y ,msg[1].point.z]
         
-        self.lock.acquire()
-        if(len(self.pts_a)>=self.MIN_NUM_CALIB):
-            add_new_pt = self.is_point_far_enough(pta,self.pts_a,self.min_d)
-        self.lock.release()
+        #self.lock.acquire()
+        #if(len(self.pts_a)>=self.MIN_NUM_CALIB):
+        add_new_pt = self.is_point_far_enough(pta,self.pts_a,self.min_d)
+        #self.lock.release()
         #if len(self.pts_a)>0 and np.linalg.norm([self.pts_a[-1],pta]) < self.min_d:
         #    rospy.logwarn("Point to close, not adding ",pta," d=",np.linalg.norm([self.pts_a[-1],pta]),"dmin=",self.min_d)
         #    add_new_pt = False
         if add_new_pt:
-            self.lock.acquire()
+            diff = msg[1].header.stamp - msg[0].header.stamp
+            rospy.loginfo("dt between msgs : "+str(diff/1e6)+"ms")
+            #rospy.loginfo("DIFF : "+str(diff/1e3)+"us")            
+            #rospy.loginfo("DIFF : "+str(diff)+"ns")
+            #self.lock.acquire()
+            self.pta_stamp = msg[0].header.stamp
+            self.ptb_stamp = msg[1].header.stamp
+            
             self.pts_a.append(pta)
             self.pts_b.append(ptb)
-            self.lock.release()
-        #time.sleep(2.0)
-        
-    def start(self):
-        self.tf_thread.start()
-        while not rospy.is_shutdown():
-            if len(self.pts_a)>self.MIN_NUM_CALIB:
-                self.lock.acquire()
-                A = np.matrix(self.pts_a)
-                B = np.matrix(self.pts_b)
-                self.lock.release()
-    
-    
-                            
-                self.publish_pointcloud(A,self.child_frame,self.cloud_a_pub)
-                self.publish_pointcloud(B,self.parent_frame,self.cloud_b_pub)
-                #print "Points A"
-                #print A
-                #print ""
-                
-                #print "Points B"
-                #print B
-                #print ""
-                
+            #self.lock.release()
+            
+            #self.do_calib.set()
+            
+            #self.lock.acquire()
+            A = np.matrix(self.pts_a)
+            B = np.matrix(self.pts_b)
+            #self.lock.release()
+
+            if len(self.pts_a):
+                self.publish_pointcloud(A,self.child_frame,self.cloud_a_pub,self.pta_stamp)
+            if len(self.pts_b):
+                self.publish_pointcloud(B,self.parent_frame,self.cloud_b_pub,self.ptb_stamp)
+            #print "Points A"
+            #print A
+            #print ""
+            
+            #print "Points B"
+            #print B
+            #print ""
+            if len(self.pts_a)>=self.MIN_NUM_CALIB:
                 ret_R, ret_t = rigid_transform_3D(B, A)
                 new_col = ret_t.reshape(3, 1)
                 tmp = np.append(ret_R, new_col, axis=1)
                 aug=np.array([[0.0,0.0,0.0,1.0]])
-                translation = np.squeeze(np.asarray(ret_t))
+                self.translation = np.squeeze(np.asarray(ret_t))
                 T = np.append(tmp,aug,axis=0)
-                quaternion = quaternion_from_matrix(T)
+                self.quaternion = quaternion_from_matrix(T)
+                #self.translation = ret_t
+            
+            try:
+                self.tf_thread.set_transformation(self.translation,self.quaternion,self.ptb_stamp)
+            except Exception,e:
+                rospy.logerr(str(e))
                 
-                self.tf_thread.set_transformation(ret_t,quaternion)
+            if self.translation is not None:
+                #print 'type:',type(self.translation),self.translation
                 self.static_transform = '<node pkg="tf" type="static_transform_publisher" name="'+self.transform_name+'" args="'\
-                +' '.join(map(str, translation))+' '+' '.join(map(str, quaternion))+' '+self.child_frame+' '+self.parent_frame+' 100" />'
-                
-                #print self.static_transform
-    
-                print "Translation - Rotation"
-                print translation,quaternion                
+                +' '.join(map(str, self.translation))+' '+' '.join(map(str, self.quaternion))+' '+self.child_frame+' '+self.parent_frame+' 100" />'
+                #+str(self.translation[0])+' '+str(self.translation[1])+' '+str(self.translation[2])+' '+' '.join(map(str, self.quaternion))+' '+self.child_frame+' '+self.parent_frame+' 100" />'
+            
+            print ""
+            print self.static_transform
+            print ""
+            #print "Translation - Rotation"
+            #print self.translation,self.quaternion
+		 
 
-            else:
-                rospy.loginfo("Waiting for %d new points to start calibration."%(self.MIN_NUM_CALIB-len(self.pts_a)))
-                time.sleep(1.0)
-            self.rate.sleep()
+
+            #rospy.loginfo("Waiting for %d new points to start calibration."%(self.MIN_NUM_CALIB-len(self.pts_a)))
+            #time.sleep(1.0)
+            
+        else:
+            pass
+            #rospy.logwarn("Point too close")
+        #time.sleep(2.0)
+        
+    def start(self):
+        try:
+            while not rospy.is_shutdown():
+                #self.do_calib.wait()
+                self.rate.sleep()
+        except Exception,e:
+            print "Final exception : ",e
+
+    def open_last_calibration(self,output_file_path):
+        if not self.output_file_path:
+            print 'Not openning last calib'
+            return
+        try:
+            with open(self.output_file_path,'r') as f:
+                s = f.read()
+                i_beg = s.find('args="') + 6
+                i_end = s.find('"',i_beg)
+                sub = s[i_beg:i_end]
+                l = sub.split(' ')
+                if len(l) == 10:
+                    self.parent_frame = l[-2]
+                    self.child_frame = l[-3]
+                    self.translation = np.array([float(l[0]),float(l[1]),float(l[2])],dtype=np.float64)
+                    self.quaternion = np.array([float(l[3]),float(l[4]),float(l[5]),float(l[6])],dtype=np.float64)
+                    print "trans = ",self.translation
+                    print "quat = ",self.quaternion
+                    print "parentf = ",self.parent_frame
+                    print "childf = ",self.child_frame
+                
+        except Exception,e: print e
+            
+    def save_calibration(self):
+        if not self.static_transform or not self.output_file_path:
+            print 'Not saving files'
+            return
+        if query_yes_no("Do you want to save "+str(self.output_file_path)):
+            print "Saving file ",self.output_file_path
+            try:
+                with open(self.output_file_path,'r') as f:
+                    with open(self.output_file_path+'.bak','w') as fbak:
+                        print self.output_file_path,' already exists, creating backup file.'
+                        fbak.write(f.read())
+            except Exception,e: print e
+            with open(self.output_file_path,'w') as f:
+                print self.static_transform
+                f.write("""
+<launch>
+   """+self.static_transform+
+"""
+</launch>
+""")
+            print "File saved."
+        else:
+            print "Not saving calibration."
+        
+        
             
         
 def main(argv):
@@ -229,11 +366,16 @@ def main(argv):
     parser.add_argument('child_frame', type=str,help='Child Frame (should match first topic)',default='/camera_depth_optical_frame')
     parser.add_argument('parent_frame', type=str,help='Second Frame (should match second topic)',default='/base_link')
     parser.add_argument('--name', type=str,help='Transformation name (for roslaunch)',default='calib_kinect')
-    parser.add_argument('-d','--dmin_between_pts', type=str,help='Distance min to get a new point',default=0.03)
-    parser.add_argument('-m','--min_pts_to_start', type=str,help='Min number of points before we start calibrating',default=3)
-    args = parser.parse_args()
-    E = Estimator(args.topic_a,args.topic_b,args.child_frame,args.parent_frame,args.name,args.dmin_between_pts,args.min_pts_to_start)
+    parser.add_argument('-d','--dmin_between_pts', type=float,help='Distance min to get a new point',default=0.01)
+    parser.add_argument('-m','--min_pts_to_start', type=int,help='Min number of points before we start calibrating',default=3)
+    parser.add_argument('-s','--slope', type=float,help='Slope time in seconds for approximate time synchronizer',default=0.02)
+    parser.add_argument('-q','--queue_size', type=int,help='Queue size for messages',default=100)
+    parser.add_argument('-o','--output_file', type=str,help='The output file for the calibration (default none, i.e not saving)',default=None)
+    parser.add_argument('-e','--enable_exact_timestamps', type=bool,help='Enable exact timestamp for topic A and B',default=False)
+    args,_ = parser.parse_known_args()
+    E = Estimator(args.topic_a,args.topic_b,args.child_frame,args.parent_frame,args.name,args.dmin_between_pts,args.min_pts_to_start,args.slope,args.queue_size,args.output_file,args.enable_exact_timestamps)
     E.start()
+    E.save_calibration()
     
 if __name__ == '__main__':
     main(sys.argv)
