@@ -32,8 +32,8 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "polaris_sensor");
     ros::NodeHandle nh("~");
 
-    ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 100);
-    ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 100);
+    ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 1);
+    ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 1);
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
@@ -103,7 +103,6 @@ int main(int argc, char **argv)
             pose.orientation.z = it->second.qz;
             pose.orientation.w = it->second.q0;
             targets_pose.poses.push_back(pose);
-
             geometry_msgs::Point32 pt;
             pt.x = it->second.tx;
             pt.y = it->second.ty;
