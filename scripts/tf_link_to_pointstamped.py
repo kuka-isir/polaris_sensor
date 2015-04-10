@@ -44,11 +44,12 @@ class Listener:
         r = rospy.Rate(100)
         while not rospy.is_shutdown():
             try:
-                self.tf.waitForTransform(self.base_frame,self.tf_frame, rospy.Time(0), rospy.Duration(10.0) )
-                translation,rotation = self.tf.lookupTransform(self.base_frame,self.tf_frame, rospy.Time(0))
+                t = self.tf.getLatestCommonTime(self.base_frame,self.tf_frame)
+                #self.tf.waitForTransform(self.base_frame,self.tf_frame, rospy.Time(0), rospy.Duration(10.0) )
+                translation,rotation = self.tf.lookupTransform(self.base_frame,self.tf_frame, t)
                 pt_out = PointStamped()
                 pt_out.header.frame_id =  self.base_frame
-                pt_out.header.stamp = rospy.Time.now()
+                pt_out.header.stamp = t
                 pt_out.point.x = translation[0]
                 pt_out.point.y = translation[1]
                 pt_out.point.z = translation[2]
