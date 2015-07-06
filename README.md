@@ -4,25 +4,27 @@ This package contains a ROS-independant library to get information from the Pola
 
 ### Installation
 ```bash
+# Prerequisite
+sudo apt-get install ros-$ROS_DISTRO-serial
 # Go to the catkin workspace
-roscd
+cd ~/catkin_ws/src
 git clone https://github.com/ahoarau/polaris_sensor.git
-cd .. 
+cd ..
 catkin_make
 ```
 
 ### Usage
-Two parameters are needed, the .rom files and the port to which the sensor is connected : 
+Two parameters are needed, the .rom files and the port to which the sensor is connected :
 ```bash
 rosrun polaris_sensor polaris_sensor _roms:=/home/T0.rom _port:=/dev/ttyUSB0
 ```
 
 If you have **multiple** rom files :  
-```bash 
+```bash
 rosrun polaris_sensor polaris_sensor _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0
 ```
 
 >Note: The rate is 60Hz.
 
 
-> Authors : Florian Richier, Antoine Hoarau
+> Authors : Antoine Hoarau, Florian Richer
