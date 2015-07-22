@@ -6,6 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <string>
 #include <bitset>
+using namespace polaris;
 
 void Polaris::removeChar(std::string& str,const char c) {
     str.erase( std::remove(str.begin(), str.end(), c), str.end() );
@@ -65,34 +66,35 @@ Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
         std::cerr << "Could not open port "<<port<<" at BAUD115200"<< std::endl;
         return;
     }
-    std::cout << "Port open" << std::endl;
+    //std::cout << "Port open" << std::endl;
 
     init();
-    std::cout << "Init done" << std::endl;
+    //std::cout << "Init done" << std::endl;
     clearPortHandles();
-    std::cout << "Clear done" << std::endl;
+    //std::cout << "Clear done" << std::endl;
 
     for(size_t i=0;i<roms.size();++i)
     {
         const std::string handle = requestPortHandle();
-        std::cout << "Request done, handle: " << handle <<std::endl;
-        loadROM(handle,roms[i]);
-        std::cout << "Load done" << std::endl;
+        //std::cout << "Request done, handle: " << handle <<std::endl;
+        if(loadROM(handle,roms[i]))
+          number_of_targets_++;
+        //std::cout << "Load done" << std::endl;
 
         initPortHandle(handle);
-        std::cout << "Init port done" << std::endl;
+        //std::cout << "Init port done" << std::endl;
 
         enablePortHandle(handle,'D');
-        std::cout << "Enable port done" << std::endl;
+        //std::cout << "Enable port done" << std::endl;
 
-        std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
+        //std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
     }
 
     startTracking();
 }
 Polaris::~Polaris()
 {
-    std::cout<<"Stopping tracking"<<std::endl;
+    //std::cout<<"Stopping tracking"<<std::endl;
     stopTracking();
     setPolarisBaudRateTo(9600);
     if(m_port.isOpen())
@@ -143,7 +145,7 @@ bool Polaris::setPolarisBaudRateTo(unsigned long baudrate)
     size_t nwrite = m_port.write(command_comm);
 
     std::string answer_comm = readUntilCR();
-    std::cout<<"Set baud rate answer:"<<answer_comm<<std::endl;
+    //std::cout<<"Set baud rate answer:"<<answer_comm<<std::endl;
     if(int a = checkAnswer(answer_comm) > 0){
         std::cerr << "COMM Error : " << a << std::endl;
         return false;
@@ -183,7 +185,7 @@ bool Polaris::openPort(const std::string& portname, unsigned long baudrate)
         std::cerr << "Unhandled Exception: " << e.what() << std::endl;
         return false;
     }
-    std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
+    //std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
     return true;
 }
 
@@ -201,7 +203,7 @@ void Polaris::clearPortHandles()
 
     int nports = ascii2int(answer_phsr[0])*16 + ascii2int(answer_phsr[1]);
 
-    std::cout<<"Clear Port handle response : "<<answer_phsr<<std::endl<<" Number of ports : "<<nports<<std::endl;
+    //std::cout<<"Clear Port handle response : "<<answer_phsr<<std::endl<<" Number of ports : "<<nports<<std::endl;
     if(nports > 0)
     {
         for(int i = 0; i < nports; i++)
@@ -227,7 +229,7 @@ void Polaris::init()
     static const std::string cmd("INIT \r");
     size_t nwrite = m_port.write(cmd);
     std::string answer_init = readUntilCR();
-    std::cout << "Init response : "<<answer_init << std::endl;
+    //std::cout << "Init response : "<<answer_init << std::endl;
     if(int a = checkAnswer(answer_init) > 0)
         std::cerr << "INIT Error : " << a << std::endl;
 }
@@ -238,7 +240,7 @@ std::string Polaris::requestPortHandle()
     size_t nwrite = m_port.write(command_phrq);
     std::string handle;
     std::string answer_phrq = readUntilCR();
-    std::cout << "answer_phrq : "<<answer_phrq<<std::endl;
+    //std::cout << "answer_phrq : "<<answer_phrq<<std::endl;
     if(int a = checkAnswer(answer_phrq) > 0)
         std::cerr << "PHRQ Error : " << a << std::endl;
     else
@@ -250,11 +252,14 @@ std::string Polaris::requestPortHandle()
 
 bool Polaris::loadROM(const std::string& handle, std::string filename)
 {
-    std::cout << "Loading "<<filename<<std::endl;
+    //std::cout << "Loading "<<filename<<std::endl;
     std::ifstream file(filename.c_str(), std::ifstream::in);
     std::ostringstream data;
     unsigned char x;
-    if(file.fail()) throw "Error while opening file "+filename;
+    if(file.fail()){
+      std::cerr << "Error while opening file " << filename << std::endl;
+      return false;
+    }
 
     file >> std::noskipws;
     while (file >> x) {
@@ -297,11 +302,11 @@ bool Polaris::loadROM(const std::string& handle, std::string filename)
         command_pvwr += '\r';
         size_t nwrite = m_port.write(command_pvwr);
 
-        //std::cout<<"Writing "<<command_pvwr<<std::endl;
-        //std::cout<<"nwrite "<<nchunks<<" size :"<<buf.size()<<std::endl;
+        ////std::cout<<"Writing "<<command_pvwr<<std::endl;
+        ////std::cout<<"nwrite "<<nchunks<<" size :"<<buf.size()<<std::endl;
 
         std::string answer_pvwr = readUntilCR();
-        //std::cout<<"answer_pvwr "<<answer_pvwr<<std::endl;
+        ////std::cout<<"answer_pvwr "<<answer_pvwr<<std::endl;
 
         if(int a = checkAnswer(answer_pvwr) > 0)
             std::cerr << "PVWR Error : " << a << std::endl;
@@ -320,7 +325,7 @@ void Polaris::initPortHandle(const std::string& handle)
     size_t nwrite = m_port.write(command_pinit);
 
     std::string answer_pinit = readUntilCR();
-    std::cout << "Init Port Handle answer : "<<answer_pinit<< std::endl;
+    //std::cout << "Init Port Handle answer : "<<answer_pinit<< std::endl;
     if(int a = checkAnswer(answer_pinit) > 0)
         std::cerr << "PINIT Error : " << a << std::endl;
 }
@@ -346,8 +351,7 @@ void Polaris::startTracking()
     size_t nwrite = m_port.write(command_tstart);
 
     std::string answer_tstart = readUntilCR();
-    std::cout << (answer_tstart.find("OKAY")==0? "Starting tracking":
-                                                 "Error while startin tracking")<< std::endl;
+    //std::cout << (answer_tstart.find("OKAY")==0? "Starting tracking":"Error while startin tracking")<< std::endl;
     if(int a = checkAnswer(answer_tstart) > 0)
         std::cerr << "TSTART Error : " << a << std::endl;
 }
@@ -361,21 +365,24 @@ void Polaris::stopTracking()
     if(int a = checkAnswer(answer_tstop) > 0)
         std::cerr << "TSTOP Error : " << a << std::endl;
 }
-
 void Polaris::readDataTX(std::string &systemStatus, std::map<int, TransformationDataTX> &map)
 {
-    map.clear();
+    if(map.size() != getNumberOfTargets())
+    {
+      map.clear();
+    }
+
     std::string command_tx = "TX 0001\r";
     m_port.write(command_tx);
 
     std::string answer_tx = readUntilCR();
-    std::cout << "big answer : "<<answer_tx<<std::endl;
+    //std::cout << "big answer : "<<answer_tx<<std::endl;
     if(int a = checkAnswer(answer_tx) > 0)
         std::cerr << "TX Error : " << a << std::endl;
 
     std::string nhandlesBA = answer_tx.substr(0,2);
     int nhandles = ascii2int(nhandlesBA[0])*16 + ascii2int(nhandlesBA[1]);
-    std::cout << "Nhandles : "<<nhandles<<std::endl;
+    //std::cout << "Nhandles : "<<nhandles<<std::endl;
     int index = 2;
 
     for(int i = 0; i < nhandles; i++)
@@ -383,11 +390,11 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
         bool missing = false;
         TransformationDataTX td = {0};
         int handle= atoi( answer_tx.substr(index,2).c_str() );
-        std::cout << "handle : "<<answer_tx.substr(index,2)<<std::endl;
+        //std::cout << "handle : "<<answer_tx.substr(index,2)<<std::endl;
         index += 2;
-        std::cout  << "substr "<< answer_tx.substr(index,7)<<std::endl;
+        //std::cout  << "substr "<< answer_tx.substr(index,7)<<std::endl;
         if(answer_tx.substr(index,7) == "MISSING"){
-            std::cout << "Target "<<handle<<" MISSING"<<std::endl;
+            //std::cout << "Target "<<handle<<" MISSING"<<std::endl;
             missing = true;
             index += 7;
         }
@@ -443,7 +450,10 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
 
 void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDataBX>& map)
 {
-    map.clear();
+    if(map.size() != getNumberOfTargets())
+    {
+      map.clear();
+    }
     static const std::string command_bx("BX 0001\r");
     m_port.write(command_bx);
 
@@ -580,4 +590,3 @@ std::string Polaris::readToolPortNumber(const std::string& handle)
 
     return answer_phinf;
 }
-
