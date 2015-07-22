@@ -23,23 +23,18 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}_lib
+add_library(${PROJECT_NAME}
    src/polaris_sensor.cpp
  )
 
- if(${OROCOS_TARGET} STREQUAL "xenomai" )
-   find_package(Xenomai REQUIRED)
-   set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY COMPILE_DEFINITIONS HAVE_RTNET XENOMAI __XENO__)
- endif()
+add_executable(${PROJECT_NAME}_node src/polaris_ros.cpp)
 
-add_executable(${PROJECT_NAME} src/polaris_ros.cpp)
-
-target_link_libraries(${PROJECT_NAME}
-   ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${PROJECT_NAME}_lib
+target_link_libraries(${PROJECT_NAME}_node
+   ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${PROJECT_NAME}
  )
 
 
-install(TARGETS ${PROJECT_NAME}_lib ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
