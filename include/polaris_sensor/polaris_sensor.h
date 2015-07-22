@@ -6,7 +6,7 @@
 #include <map>
 // Included in ROS but available at : http://wjwwood.io/serial/doc/1.1.0/index.html
 #include <serial/serial.h>
-
+namespace polaris{
 class TransformationDataBX
 {
 public:
@@ -199,8 +199,9 @@ public:
      * @return Nothing.
      */
     static void removeChar(std::string& str,const char c);
-
+    const unsigned int getNumberOfTargets()const{return number_of_targets_;}
 private:
+    unsigned int number_of_targets_;
     serial::Serial m_port;
 
     std::string readUntilCR(uint32_t timeout = 250);
@@ -214,5 +215,5 @@ private:
      */
     static int checkAnswer(const std::string &answer);
 };
-
+}
 #endif
