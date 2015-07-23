@@ -91,14 +91,12 @@ int main(int argc, char **argv)
     geometry_msgs::Point32 pt;
     
     std_msgs::Float32 dt;
-    
+    std::map<int,TransformationDataTX> targets;
     while (ros::ok())
     {
-        targets_pose.poses.clear();
-        targets_cloud.points.clear();
         /* Start TX */
         std::string status;
-        std::map<int,TransformationDataTX> targets;
+        
 	
 	ros::Time start = ros::Time::now();
 
