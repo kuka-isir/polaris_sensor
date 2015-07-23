@@ -9,8 +9,10 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
 )
 
-list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS} -g -ftest-coverage -fprofile-arcs")
-find_package(Boost REQUIRED COMPONENTS system)
+
+#list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS} -g -ftest-coverage -fprofile-arcs")
+## System dependencies are found with CMake's conventions
+find_package(Boost COMPONENTS system filesystem REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
@@ -20,6 +22,8 @@ catkin_package(
 
 include_directories(include)
 include_directories(
+  include
+  ${Boost_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
 )
 

@@ -74,7 +74,7 @@ public:
      * @param baudrate Baud rate of the COM port, can be BAUD9600 or BAUD115200.
      * @return true in case of success.
      */
-    bool openPort(const std::string& portname,unsigned long baudrate);
+    bool openPort(const std::string& portname, uint32_t baudrate);
 
     /**
      * @brief Closes the COM port if it is open.
@@ -204,7 +204,7 @@ private:
     unsigned int number_of_targets_;
     serial::Serial m_port;
 
-    std::string readUntilCR(uint32_t timeout = 250);
+    std::string readUntilCR(uint32_t timeout = 500);
     std::string readUntilBXAnswerComplete();
 
     /**

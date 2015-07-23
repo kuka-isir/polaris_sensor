@@ -6,7 +6,13 @@
 #include <boost/algorithm/string.hpp>
 #include <string>
 #include <bitset>
+
 using namespace polaris;
+
+#include <limits>
+#include <unistd.h>
+#define BAUD_RATE_INIT 9600
+#define BAUD_RATE_RUNNING 115200//1228739
 
 void Polaris::removeChar(std::string& str,const char c) {
     str.erase( std::remove(str.begin(), str.end(), c), str.end() );
@@ -56,15 +62,13 @@ Polaris::Polaris()
 }
 Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
 {
-    if(!openPort(port,9600)){
-        std::cerr << "Could not open port "<<port<<" at BAUD9600"<< std::endl;
+    if(!openPort(port,BAUD_RATE_INIT)){
+        std::cerr << "Could not open port "<<port<<" at "<<BAUD_RATE_INIT<< std::endl;
         return;
     }
-    setPolarisBaudRateTo(115200);
-
-    if(!openPort(port,115200)){
-        std::cerr << "Could not open port "<<port<<" at BAUD115200"<< std::endl;
-        return;
+    if(setPolarisBaudRateTo(BAUD_RATE_RUNNING)){
+    }else{
+      std::cerr << "Could not open port "<<port<<" at "<< BAUD_RATE_RUNNING << std::endl;
     }
     //std::cout << "Port open" << std::endl;
 
@@ -96,7 +100,7 @@ Polaris::~Polaris()
 {
     //std::cout<<"Stopping tracking"<<std::endl;
     stopTracking();
-    setPolarisBaudRateTo(9600);
+    setPolarisBaudRateTo(BAUD_RATE_INIT);
     if(m_port.isOpen())
         m_port.close();
 }
@@ -131,62 +135,104 @@ bool Polaris::setPolarisBaudRateTo(unsigned long baudrate)
 {
     if(!m_port.isOpen()){
         std::cerr<<"Port not openned"<<std::endl;
-        return true;
+        return false;
     }
 
     std::string command_comm;
-    if(baudrate == 115200)
-        command_comm="COMM 50001\r";
-    else if(baudrate == 9600)
-        command_comm="COMM 00001\r";
-    else
+    switch(baudrate){
+    case 9600:
+        command_comm = "COMM 00000\r";
+        break;
+    case 14400:
+        command_comm = "COMM 10001\r";
+        break;
+    case 19200:
+        command_comm = "COMM 20001\r";
+        break;
+    case 38400:
+        command_comm = "COMM 30001\r";
+        break;
+    case 57600:
+        command_comm = "COMM 40001\r";
+        break;
+    case 115200:
+        command_comm = "COMM 50001\r";
+        break;
+    case 921600:
+        command_comm = "COMM 60001\r";
+        break;
+    case 1228739:
+        command_comm = "COMM 70001\r";
+        break;
+    default:
         std::cerr<<"Baudrate "<<baudrate<<" is not supported"<<std::endl;
+        break;
+    }
 
     size_t nwrite = m_port.write(command_comm);
 
     std::string answer_comm = readUntilCR();
     //std::cout<<"Set baud rate answer:"<<answer_comm<<std::endl;
+
     if(int a = checkAnswer(answer_comm) > 0){
-        std::cerr << "COMM Error : " << a << std::endl;
+        std::cerr << "COMM Error : " << a <<" Command : "<<command_comm<<" answer : "<< answer_comm<< std::endl;
         return false;
     }
+    usleep(200000);
+    m_port.setBaudrate(baudrate);
     return true;
 }
 
-bool Polaris::openPort(const std::string& portname, unsigned long baudrate)
+bool Polaris::openPort(const std::string& portname,uint32_t baudrate)
 {
     if(m_port.isOpen())
         m_port.close();
-
+    
     m_port.setPort(portname);
     m_port.setBaudrate(baudrate);
     m_port.setBytesize(serial::eightbits);
     m_port.setParity(serial::parity_none);
     m_port.setStopbits(serial::stopbits_one);
-    m_port.setFlowcontrol(serial::flowcontrol_hardware);
-
+    m_port.setFlowcontrol(serial::flowcontrol_none); // init
+    std::string response;
     try {
         m_port.open();
-        m_port.write(" \r");
-        if(readUntilCR().size()==0)
+	response = readUntilCR();
+	
+	if(response.size() != 0)
+	  std::cerr << "Port cleaned " << response << std::endl;
+	
+        m_port.write("VER 5\r");
+	response = readUntilCR();
+	//std::cout << "response " <<response <<std::endl;
+        if(response.find("022BA94")!=0) // we are in a wrong mode (probably due to a bad stop)
         {
-            std::cerr<<"Resetting baudrate"<<std::endl;
-            m_port.close();
-            m_port.setBaudrate(115200);
-            m_port.open();
-            setPolarisBaudRateTo(9600);
-            m_port.close();
-            m_port.setBaudrate(9600);
-            m_port.open();
-            m_port.write("\r");
-            return readUntilCR().find("ERROR")==0;
-        }
+	  //std::cout << "response " <<response <<std::endl;
+	  // Let's reset the sensor
+	  // It was stopped on running mode (bad stop)
+            m_port.setBaudrate(BAUD_RATE_RUNNING);
+	    m_port.setFlowcontrol(serial::flowcontrol_hardware);
+	    usleep(200000);
+	    // We put it back to init
+            setPolarisBaudRateTo(BAUD_RATE_INIT);
+	    usleep(200000);
+            m_port.setBaudrate(BAUD_RATE_INIT);
+	    m_port.setFlowcontrol(serial::flowcontrol_none);
+            //m_port.open();
+	    baudrate = BAUD_RATE_INIT;
+            m_port.write("VER 5\r");
+	    response = readUntilCR();
+        }else{
+	  std::cout << "Polaris OK at BAUD " << BAUD_RATE_INIT << std::endl;
+	}
     } catch (serial::IOException &e) {
         std::cerr << "Unhandled Exception: " << e.what() << std::endl;
         return false;
     }
-    //std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
-    return true;
+
+    //response = readUntilCR();
+    //std::cout << "Port "<<portname<<" opened at BAUD "<<baudrate<< " (response : " << response <<" )"<<std::endl;
+    return  response.size();
 }
 
 void Polaris::closePort()
@@ -428,10 +474,10 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
             index += 7;
 
             std::string error = answer_tx.substr(index,6);
-            td.error = PortHandle2int(error,10)/10000.0;
+            td.error = PortHandle2int(error,10)/1000000.0;
             index += 6;
         }else{
-            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=0; // 0 is false
+            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=std::numeric_limits<float>::quiet_NaN(); // nan if not seen
         }
         std::string status = answer_tx.substr(index,8);
         td.status = status;
@@ -478,8 +524,8 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
 
     uint8_t nhandles = answer_bx.data()[6];
 
-    int index = 7;
-    for(int i = 0; i < nhandles; i++)
+    unsigned int index = 7;
+    for(unsigned int i = 0; i < nhandles; i++)
     {
         uint8_t nhandle = answer_bx.data()[index];
         index++;
@@ -488,52 +534,51 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
 
         td.handleStatus = answer_bx.data()[index];
         index++;
-        float val=0.0; // TODO: Check on 32b machines
-        if(td.handleStatus != 4) // missing
+        float val = 0.0;
+        if(td.handleStatus != 4 && td.handleStatus != 2 && td.handleStatus == 1) // Valid target, not missing nor disabled
         {
-            if(td.handleStatus == 1)
-            {
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.q0 = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.qx = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.qy = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.qz = val;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.tx = val/1000.0;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.ty = val/1000.0;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.tz = val/1000.0;
-                index += 4;
-
-                memcpy(&val,&answer_bx.data()[index],4);
-                td.error = val/1000.0;
-                index += 4;
-            }
-
-            memcpy(&td.portStatus,&answer_bx.data()[index],4);
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.q0 = val;
             index += 4;
 
-            memcpy(&td.number,&answer_bx.data()[index],4);
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.qx = val;
             index += 4;
 
-            map[nhandle] = td;
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.qy = val;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.qz = val;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.tx = val/1000.0;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.ty = val/1000.0;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.tz = val/1000.0;
+            index += 4;
+
+            memcpy(&val,&answer_bx.data()[index],4);
+            td.error = val/1000.0;
+            index += 4;
+        }else{
+            td.q0=td.qx=td.qy=td.qz=td.tx=td.ty=td.tz=td.error=std::numeric_limits<float>::quiet_NaN(); // nan if not seen
         }
+
+        memcpy(&td.portStatus,&answer_bx.data()[index],4);
+        index += 4;
+
+        memcpy(&td.number,&answer_bx.data()[index],4);
+        index += 4;
+
+        map[nhandle] = td;
     }
     memcpy(&systemStatus,&answer_bx.data()[index],2);
     return;
