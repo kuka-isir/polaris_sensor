@@ -8,12 +8,13 @@
 #include <boost/filesystem.hpp>
 #include <algorithm>
 #include <fstream>
-
+#include <std_msgs/Float32.h>
+#include <ctime>
+#include <iostream>
 bool fexists(const std::string& filename) {
   std::ifstream ifile(filename.c_str());
   return ifile;
 }
-
 
 bool exists(const std::string& r)
 {
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
 
     ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 1);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 1);
+    ros::Publisher dt_pub = nh.advertise<std_msgs::Float32>("dt", 1);
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
@@ -63,7 +65,7 @@ int main(int argc, char **argv)
        ROS_FATAL("No roms could be loaded, exiting.");
        return -2;
    }
-
+    int n = roms.size();
     Polaris polaris(port,roms);
 
     geometry_msgs::PoseArray targets_pose;
@@ -75,6 +77,16 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(100);
     int count = 0;
     ROS_INFO("Starting Polaris tracker loop");
+    for(int i=0;i<n;++i){
+      targets_pose.poses.push_back(geometry_msgs::Pose());
+      targets_cloud.points.push_back(geometry_msgs::Point32());
+    }
+    
+    geometry_msgs::Pose pose;
+    geometry_msgs::Point32 pt;
+    
+    std_msgs::Float32 dt;
+    
     while (ros::ok())
     {
         targets_pose.poses.clear();
@@ -82,7 +94,17 @@ int main(int argc, char **argv)
         /* Start TX */
         std::string status;
         std::map<int,TransformationDataTX> targets;
-        polaris.readDataTX(status,targets);
+	
+	ros::Time start = ros::Time::now();
+
+	polaris.readDataTX(status,targets);
+
+	ros::Time end = ros::Time::now();
+	ros::Duration duration = (end - start);
+	
+	dt.data = duration.nsec/1000000.;
+	
+        dt_pub.publish(dt);
 
         std::map<int,TransformationDataTX>::iterator it = targets.begin();
 
@@ -92,9 +114,9 @@ int main(int argc, char **argv)
         polaris.readDataBX(status,targets);
 
         std::map<int,TransformationDataBX>::iterator it = targets.begin();*/
-        for(;it!=targets.end();++it)
+	unsigned int i=0;
+        for(it = targets.begin();it!=targets.end();++it)
         {
-            geometry_msgs::Pose pose;
             pose.position.x = it->second.tx;
             pose.position.y = it->second.ty;
             pose.position.z = it->second.tz;
@@ -102,12 +124,13 @@ int main(int argc, char **argv)
             pose.orientation.y = it->second.qy;
             pose.orientation.z = it->second.qz;
             pose.orientation.w = it->second.q0;
-            targets_pose.poses.push_back(pose);
-            geometry_msgs::Point32 pt;
+            targets_pose.poses[i] = pose;
+            
             pt.x = it->second.tx;
             pt.y = it->second.ty;
             pt.z = it->second.tz;
-            targets_cloud.points.push_back(pt);
+            targets_cloud.points[i] = pt;
+	    i++;
         }
 
         targets_cloud.header.stamp = ros::Time::now();
