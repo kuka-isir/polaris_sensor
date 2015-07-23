@@ -7,9 +7,9 @@
 #include <string>
 #include <bitset>
 #include <limits>
-
+#include <unistd.h>
 #define BAUD_RATE_INIT 9600
-#define BAUD_RATE_RUNNING 1228739
+#define BAUD_RATE_RUNNING 115200//1228739
 
 void Polaris::removeChar(std::string& str,const char c) {
     str.erase( std::remove(str.begin(), str.end(), c), str.end() );
@@ -63,12 +63,13 @@ Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
         std::cerr << "Could not open port "<<port<<" at "<<BAUD_RATE_INIT<< std::endl;
         return;
     }
-    setPolarisBaudRateTo(BAUD_RATE_RUNNING);
-
-    if(!openPort(port,BAUD_RATE_RUNNING)){
-        std::cerr << "Could not open port "<<port<<" at "<< BAUD_RATE_RUNNING << std::endl;
-        return;
+    if(setPolarisBaudRateTo(BAUD_RATE_RUNNING)){
+    }else{
+      std::cerr << "Could not open port "<<port<<" at "<< BAUD_RATE_RUNNING << std::endl;
     }
+    /*if(!openPort(port,BAUD_RATE_RUNNING)){
+        std::cerr << "Could not open port "<<port<<" at "<< BAUD_RATE_RUNNING << std::endl;
+    }*/
     //std::cout << "Port open" << std::endl;
 
     init();
@@ -79,17 +80,17 @@ Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
     for(size_t i=0;i<roms.size();++i)
     {
         const std::string handle = requestPortHandle();
-        //std::cout << "Request done, handle: " << handle <<std::endl;
+        std::cout << "Request done, handle: " << handle <<std::endl;
         loadROM(handle,roms[i]);
-        //std::cout << "Load done" << std::endl;
+        std::cout << "Load done" << std::endl;
 
         initPortHandle(handle);
-        //std::cout << "Init port done" << std::endl;
+        std::cout << "Init port done" << std::endl;
 
         enablePortHandle(handle,'D');
-        //std::cout << "Enable port done" << std::endl;
+        std::cout << "Enable port done" << std::endl;
 
-        //std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
+        std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
     }
 
     startTracking();
@@ -133,34 +134,34 @@ bool Polaris::setPolarisBaudRateTo(unsigned long baudrate)
 {
     if(!m_port.isOpen()){
         std::cerr<<"Port not openned"<<std::endl;
-        return true;
+        return false;
     }
 
     std::string command_comm;
     switch(baudrate){
     case 9600:
-        command_comm = "COMM 000001\r";
+        command_comm = "COMM 00000\r";
         break;
     case 14400:
-        command_comm = "COMM 100001\r";
+        command_comm = "COMM 10001\r";
         break;
     case 19200:
-        command_comm = "COMM 200001\r";
+        command_comm = "COMM 20001\r";
         break;
     case 38400:
-        command_comm = "COMM 300001\r";
+        command_comm = "COMM 30001\r";
         break;
     case 57600:
-        command_comm = "COMM 400001\r";
+        command_comm = "COMM 40001\r";
         break;
     case 115200:
-        command_comm = "COMM 500001\r";
+        command_comm = "COMM 50001\r";
         break;
     case 921600:
-        command_comm = "COMM 600001\r";
+        command_comm = "COMM 60001\r";
         break;
     case 1228739:
-        command_comm = "COMM 700001\r";
+        command_comm = "COMM 70001\r";
         break;
     default:
         std::cerr<<"Baudrate "<<baudrate<<" is not supported"<<std::endl;
@@ -170,48 +171,64 @@ bool Polaris::setPolarisBaudRateTo(unsigned long baudrate)
     size_t nwrite = m_port.write(command_comm);
 
     std::string answer_comm = readUntilCR();
-    //std::cout<<"Set baud rate answer:"<<answer_comm<<std::endl;
     if(int a = checkAnswer(answer_comm) > 0){
-        std::cerr << "COMM Error : " << a << std::endl;
+        std::cerr << "COMM Error : " << a <<" Command : "<<command_comm<<" answer : "<< answer_comm<< std::endl;
         return false;
     }
+    usleep(200000);
+    m_port.setBaudrate(baudrate);
     return true;
 }
 
-bool Polaris::openPort(const std::string& portname, unsigned long baudrate)
+bool Polaris::openPort(const std::string& portname,uint32_t baudrate)
 {
     if(m_port.isOpen())
         m_port.close();
-
+    
     m_port.setPort(portname);
     m_port.setBaudrate(baudrate);
     m_port.setBytesize(serial::eightbits);
     m_port.setParity(serial::parity_none);
     m_port.setStopbits(serial::stopbits_one);
-    m_port.setFlowcontrol(serial::flowcontrol_hardware);
-
+    m_port.setFlowcontrol(serial::flowcontrol_none); // init
+    std::string response;
     try {
         m_port.open();
-        m_port.write(" \r");
-        if(readUntilCR().size()==0)
+	response = readUntilCR();
+	
+	if(response.size() != 0)
+	  std::cerr << "Port cleaned " << response << std::endl;
+	
+        m_port.write("VER 5\r");
+	response = readUntilCR();
+	//std::cout << "response " <<response <<std::endl;
+        if(response.find("022BA94")!=0) // we are in a wrong mode (probably due to a bad stop)
         {
-            //std::cout<<"Resetting baudrate"<<std::endl;
-            m_port.close();
+	  //std::cout << "response " <<response <<std::endl;
+	  // Let's reset the sensor
+	  // It was stopped on running mode (bad stop)
             m_port.setBaudrate(BAUD_RATE_RUNNING);
-            m_port.open();
+	    m_port.setFlowcontrol(serial::flowcontrol_hardware);
+	    usleep(200000);
+	    // We put it back to init
             setPolarisBaudRateTo(BAUD_RATE_INIT);
-            m_port.close();
+	    usleep(200000);
             m_port.setBaudrate(BAUD_RATE_INIT);
-            m_port.open();
-            m_port.write("\r");
-            return readUntilCR().find("ERROR")==0;
-        }
+	    m_port.setFlowcontrol(serial::flowcontrol_none);
+            //m_port.open();
+	    baudrate = BAUD_RATE_INIT;
+            m_port.write("VER 5\r");
+	    response = readUntilCR();
+        }else{
+	  std::cout << "Polaris OK at BAUD " << BAUD_RATE_INIT << std::endl;
+	}
     } catch (serial::IOException &e) {
         std::cerr << "Unhandled Exception: " << e.what() << std::endl;
         return false;
     }
-    //std::cout << "Port "<<portname<<" opened at BAUD"<<baudrate<<std::endl;
-    return true;
+    //response = readUntilCR();
+    //std::cout << "Port "<<portname<<" opened at BAUD "<<baudrate<< " (response : " << response <<" )"<<std::endl;
+    return  response.size();
 }
 
 void Polaris::closePort()
@@ -395,7 +412,7 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
     m_port.write(command_tx);
 
     std::string answer_tx = readUntilCR();
-    //std::cout << "big answer : "<<answer_tx<<std::endl;
+    std::cout << "big answer : "<<answer_tx<<std::endl;
     if(int a = checkAnswer(answer_tx) > 0)
         std::cerr << "TX Error : " << a << std::endl;
 
