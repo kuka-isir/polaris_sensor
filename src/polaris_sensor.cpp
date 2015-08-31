@@ -62,6 +62,8 @@ Polaris::Polaris()
 }
 Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
 {
+    number_of_targets_ = 0;
+    
     if(!openPort(port,BAUD_RATE_INIT)){
         std::cerr << "Could not open port "<<port<<" at "<<BAUD_RATE_INIT<< std::endl;
         return;
@@ -93,7 +95,7 @@ Polaris::Polaris(const std::string port,const std::vector<std::string> roms)
 
         //std::cout << "Port info : " << readPortInfo(handle)<< std::endl;
     }
-
+    std::cout << "Number of targets : " << getNumberOfTargets()<< std::endl;
     startTracking();
 }
 Polaris::~Polaris()
