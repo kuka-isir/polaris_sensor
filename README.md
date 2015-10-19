@@ -2,17 +2,6 @@ Polaris Hybrid Position Sensor driver
 ==============
 This package contains a ROS-independant library to get information from the Polaris (based on https://github.com/wjwwood/serial) and a simple ROS wrapper (using catkin) to send a geometry_msgs::PoseArray (visualizable on rviz).
 
-### Installation
-```bash
-# Prerequisite
-sudo apt-get install ros-$ROS_DISTRO-serial
-# Go to the catkin workspace
-cd ~/catkin_ws/src
-git clone https://github.com/ahoarau/polaris_sensor.git
-cd ..
-catkin_make
-```
-
 ### Usage
 Two parameters are needed, the .rom files and the port to which the sensor is connected :
 ```bash
