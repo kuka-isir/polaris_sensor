@@ -2,6 +2,8 @@ Polaris Hybrid Position Sensor driver
 ==============
 This package contains a ROS-independant library to get information from the Polaris (based on https://github.com/wjwwood/serial) and a simple ROS wrapper (using catkin) to send a geometry_msgs::PoseArray (visualizable on rviz).
 
+##### Build status
+[![Build Status](https://travis-ci.org/kuka-isir/polaris_sensor.svg?branch=master)](https://travis-ci.org/kuka-isir/polaris_sensor)
 ### Usage
 Two parameters are needed, the .rom files and the port to which the sensor is connected :
 ```bash
