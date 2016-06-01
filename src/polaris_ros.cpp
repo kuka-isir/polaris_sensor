@@ -13,7 +13,7 @@
 #include <iostream>
 bool fexists(const std::string& filename) {
   std::ifstream ifile(filename.c_str());
-  return ifile;
+  return (bool)ifile;
 }
 
 using namespace boost;
@@ -86,27 +86,27 @@ int main(int argc, char **argv)
       targets_pose.poses.push_back(geometry_msgs::Pose());
       targets_cloud.points.push_back(geometry_msgs::Point32());
     }
-    
+
     geometry_msgs::Pose pose;
     geometry_msgs::Point32 pt;
-    
+
     std_msgs::Float32 dt;
     std::map<int,TransformationDataTX> targets;
     while (ros::ok())
     {
         /* Start TX */
         std::string status;
-        
-	
+
+
 	ros::Time start = ros::Time::now();
 
 	polaris.readDataTX(status,targets);
 
 	ros::Time end = ros::Time::now();
 	ros::Duration duration = (end - start);
-	
+
 	dt.data = duration.nsec/1000000.;
-	
+
         dt_pub.publish(dt);
 
         std::map<int,TransformationDataTX>::iterator it = targets.begin();
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
             pose.orientation.z = it->second.qz;
             pose.orientation.w = it->second.q0;
             targets_pose.poses[i] = pose;
-            
+
             pt.x = it->second.tx;
             pt.y = it->second.ty;
             pt.z = it->second.tz;
