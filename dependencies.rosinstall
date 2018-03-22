@@ -1,0 +1,8 @@
+# NOTE: This is an example source dependency, remove it before adding the
+# dependencies.rosinstall file to your repository.
+#
+# The 'Serial Communication Library' utility is a cross-platform library for interfacing with rs-232 serial like ports written in C++. It provides a modern C++ interface with a workflow designed to look and feel like PySerial, but with the speed and control provided by C++.
+
+- git:
+    local-name: wjwwood/serial
+    uri: https://github.com/wjwwood/serial

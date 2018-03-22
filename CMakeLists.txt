@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 
 #list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS} -g -ftest-coverage -fprofile-arcs")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 ## System dependencies are found with CMake's conventions
 find_package(Boost COMPONENTS system filesystem REQUIRED)
 
@@ -33,6 +34,11 @@ add_library(${PROJECT_NAME}
 
 add_executable(${PROJECT_NAME}_node src/polaris_ros.cpp)
 
+target_link_libraries(${PROJECT_NAME}
+   ${catkin_LIBRARIES}
+   ${Boost_LIBRARIES}
+ )
+
 target_link_libraries(${PROJECT_NAME}_node
    ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${PROJECT_NAME}
  )
@@ -42,10 +48,4 @@ install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-install(DIRECTORY include/${PROJECT_NAME}/
- DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
- FILES_MATCHING PATTERN "*.h"
- PATTERN ".svn" EXCLUDE
 )

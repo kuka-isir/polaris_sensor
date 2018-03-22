@@ -4,18 +4,27 @@ This package contains a ROS-independant library to get information from the Pola
 
 ##### Build status
 [![Build Status](https://travis-ci.org/kuka-isir/polaris_sensor.svg?branch=master)](https://travis-ci.org/kuka-isir/polaris_sensor)
-### Usage
-Two parameters are needed, the .rom files and the port to which the sensor is connected :
-```bash
-rosrun polaris_sensor polaris_sensor _roms:=/home/T0.rom _port:=/dev/ttyUSB0
-```
 
-If you have **multiple** rom files :  
-```bash
-rosrun polaris_sensor polaris_sensor _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0
-```
+###### forked package, change the Cmakelist.txt
 
->Note: The rate is 60Hz.
+If you plan to access the Polaris Vicra from a non-root user account, you will need to add the
 
+user account to the “lock” group. It may also be necessary to add the user account to the
 
-> Authors : Antoine Hoarau, Florian Richer
+following groups:
+
+uucp
+
+tty
+
+dialout
+
+# Please run:
+'sudo usermod -G group_name account_name' for the above three groups
+
+# To run the node for mutiple rom files:
+'rosrun polaris_sensor polaris_sensor_node _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0'
+
+The marker files(.rom) are in the 'rom' folder
+
+>Note: The rate is 60Hz, supposed to be the max rate.

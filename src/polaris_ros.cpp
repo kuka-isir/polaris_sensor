@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <fstream>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Float64MultiArray.h>
 #include <ctime>
 #include <iostream>
 bool fexists(const std::string& filename) {
@@ -41,6 +42,7 @@ int main(int argc, char **argv)
     ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 1);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 1);
     ros::Publisher dt_pub = nh.advertise<std_msgs::Float32>("dt", 1);
+    ros::Publisher raw_pub = nh.advertise<std_msgs::Float64MultiArray>("raw_points", 1);
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
@@ -75,6 +77,7 @@ int main(int argc, char **argv)
 
     geometry_msgs::PoseArray targets_pose;
     sensor_msgs::PointCloud targets_cloud;
+    std_msgs::Float64MultiArray raw_points;
 
     targets_cloud.header.frame_id = "/"+camera+"_link";
     targets_pose.header.frame_id = "/"+camera+"_link";
@@ -92,15 +95,17 @@ int main(int argc, char **argv)
 
     std_msgs::Float32 dt;
     std::map<int,TransformationDataTX> targets;
+    std::vector<double> pts(4);
     while (ros::ok())
     {
         /* Start TX */
+        //Text version
         std::string status;
 
 
 	ros::Time start = ros::Time::now();
 
-	polaris.readDataTX(status,targets);
+	polaris.readDataTX(status,targets, pts);
 
 	ros::Time end = ros::Time::now();
 	ros::Duration duration = (end - start);
@@ -111,8 +116,9 @@ int main(int argc, char **argv)
 
         std::map<int,TransformationDataTX>::iterator it = targets.begin();
 
-        /* Start BX
-        uint16_t status;
+        /* Start BX*/
+        //Binary version
+        /*uint16_t status;
         std::map<int,TransformationDataBX> targets;
         polaris.readDataBX(status,targets);
 
@@ -135,11 +141,14 @@ int main(int argc, char **argv)
             targets_cloud.points[i] = pt;
 	    i++;
         }
+        
+        raw_points.data = pts;
 
         targets_cloud.header.stamp = ros::Time::now();
         targets_pose.header.stamp = ros::Time::now();
         cloud_pub.publish(targets_cloud);
         pose_array_pub.publish(targets_pose);
+        raw_pub.publish(raw_points);
 
         ros::spinOnce();
         loop_rate.sleep();

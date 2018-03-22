@@ -7,6 +7,8 @@
 #include <string>
 #include <bitset>
 
+#include <math.h>
+
 using namespace polaris;
 
 #include <limits>
@@ -274,6 +276,7 @@ void Polaris::clearPortHandles()
 
 void Polaris::init()
 {
+std::cerr << "Init";
     static const std::string cmd("INIT \r");
     size_t nwrite = m_port.write(cmd);
     std::string answer_init = readUntilCR();
@@ -413,25 +416,29 @@ void Polaris::stopTracking()
     if(int a = checkAnswer(answer_tstop) > 0)
         std::cerr << "TSTOP Error : " << a << std::endl;
 }
-void Polaris::readDataTX(std::string &systemStatus, std::map<int, TransformationDataTX> &map)
+void Polaris::readDataTX(std::string &systemStatus, std::map<int, TransformationDataTX> &map, std::vector<double>& markers)
 {
+
     if(map.size() != getNumberOfTargets())
     {
       map.clear();
     }
 
-    std::string command_tx = "TX 0001\r";
+    std::string command_tx = "TX 1001\r";
     m_port.write(command_tx);
+    //std::cerr << "\t" << command_tx << std::endl;
 
     std::string answer_tx = readUntilCR();
-    //std::cout << "big answer : "<<answer_tx<<std::endl;
+    //std::cerr << answer_tx << std::endl;
     if(int a = checkAnswer(answer_tx) > 0)
         std::cerr << "TX Error : " << a << std::endl;
 
     std::string nhandlesBA = answer_tx.substr(0,2);
     int nhandles = ascii2int(nhandlesBA[0])*16 + ascii2int(nhandlesBA[1]);
-    //std::cout << "Nhandles : "<<nhandles<<std::endl;
+    //std::cerr << "Nhandles : "<<nhandles<<std::endl;
     int index = 2;
+    
+    int consumed = 0;
 
     for(int i = 0; i < nhandles; i++)
     {
@@ -488,9 +495,29 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
         std::string number = answer_tx.substr(index,8);
         td.number = number;
         index += 8;
+        
+        consumed = index;
 
         map[handle] = td;
     }
+    
+    //std::cerr << answer_tx << std::endl;
+    int handex = nhandles * 70;
+    std::string rest = answer_tx.substr(consumed);
+    //std::cerr << "RESULT :" << rest << std::endl;
+    int n_markers = std::stoi(rest.substr(0, 2).c_str());
+    markers.resize(n_markers * 3);
+    int skip = 2 + (int)ceil(n_markers / 4.0);//There has to be a less cumbersome way to do that...
+    std::string number_string = rest.substr(skip);
+    for(int i = 0; i < n_markers; i++){
+    	std::string numbers = number_string.substr(0, 21);
+    	number_string = number_string.substr(21);
+    	//std::cerr << numbers << std::endl;
+    	markers[i * 3] = PortHandle2int(numbers.substr(0, 7),10)/100000.0;
+    	markers[i * 3 + 1] = PortHandle2int(numbers.substr(7, 7),10)/100000.0;
+    	markers[i * 3 + 2] = PortHandle2int(numbers.substr(14, 7),10)/100000.0;
+    }
+    
     systemStatus.clear();
     systemStatus = answer_tx.substr(index,4);
     return;// map;
@@ -503,9 +530,12 @@ void Polaris::readDataBX(uint16_t& systemStatus, std::map<int, TransformationDat
       map.clear();
     }
     static const std::string command_bx("BX 0001\r");
+    std::cerr << "\t" << command_bx << std::endl;
     m_port.write(command_bx);
 
     std::string answer_bx= readUntilBXAnswerComplete();
+    std::cerr << answer_bx << std::endl;
+    
     if(int a = checkAnswer(answer_bx) > 0)
         std::cerr << "BX Error : " << a << std::endl;
 

@@ -139,7 +139,7 @@ public:
      * @param systemStatus System status.
      * @return A map between handles and transformation datas.
      */
-    void readDataTX(std::string &systemStatus,std::map<int,TransformationDataTX>& map);
+    void readDataTX(std::string &systemStatus,std::map<int,TransformationDataTX>& map, std::vector<double>& markers);
 
     /**
      * @brief readDataBX Reads available data as BX mode (binary).
