@@ -276,7 +276,6 @@ void Polaris::clearPortHandles()
 
 void Polaris::init()
 {
-std::cerr << "Init";
     static const std::string cmd("INIT \r");
     size_t nwrite = m_port.write(cmd);
     std::string answer_init = readUntilCR();
@@ -424,7 +423,7 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
       map.clear();
     }
 
-    std::string command_tx = "TX 1001\r";
+    std::string command_tx = "TX 1801\r";
     m_port.write(command_tx);
     //std::cerr << "\t" << command_tx << std::endl;
 
@@ -501,14 +500,15 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
         map[handle] = td;
     }
     
-    //std::cerr << answer_tx << std::endl;
+    std::cerr << answer_tx << std::endl;
     int handex = nhandles * 70;
     std::string rest = answer_tx.substr(consumed);
-    //std::cerr << "RESULT :" << rest << std::endl;
     int n_markers = std::stoi(rest.substr(0, 2).c_str());
-    markers.resize(n_markers * 3);
     int skip = 2 + (int)ceil(n_markers / 4.0);//There has to be a less cumbersome way to do that...
+    std::string code_string = rest.substr(2);
+    markers.resize(n_markers * 3);
     std::string number_string = rest.substr(skip);
+    //std::cerr << "\t" << number_string << std::endl;
     for(int i = 0; i < n_markers; i++){
     	std::string numbers = number_string.substr(0, 21);
     	number_string = number_string.substr(21);

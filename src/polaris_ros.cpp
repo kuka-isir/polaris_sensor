@@ -141,7 +141,8 @@ int main(int argc, char **argv)
             targets_cloud.points[i] = pt;
 	    i++;
         }
-        
+        pts.push_back(ros::Time::now().toSec());
+        pts.push_back(ros::Time::now().toNSec());
         raw_points.data = pts;
 
         targets_cloud.header.stamp = ros::Time::now();
