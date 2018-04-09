@@ -500,7 +500,7 @@ void Polaris::readDataTX(std::string &systemStatus, std::map<int, Transformation
         map[handle] = td;
     }
     
-    std::cerr << answer_tx << std::endl;
+    //std::cerr << answer_tx << std::endl;
     int handex = nhandles * 70;
     std::string rest = answer_tx.substr(consumed);
     int n_markers = std::stoi(rest.substr(0, 2).c_str());
