@@ -2,6 +2,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseArray.h>
 #include <sensor_msgs/PointCloud.h>
+#include <polaris_sensor/StrayMarker.h>
 #include <serial/serial.h>
 #include <polaris_sensor/polaris_sensor.h>
 #include <boost/algorithm/string.hpp>
@@ -42,7 +43,7 @@ int main(int argc, char **argv)
     ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 1);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 1);
     ros::Publisher dt_pub = nh.advertise<std_msgs::Float32>("dt", 1);
-    ros::Publisher raw_pub = nh.advertise<std_msgs::Float64MultiArray>("raw_points", 1);
+    ros::Publisher raw_pub = nh.advertise<polaris_sensor::StrayMarker>("stray_markers", 1);
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 
     geometry_msgs::PoseArray targets_pose;
     sensor_msgs::PointCloud targets_cloud;
-    std_msgs::Float64MultiArray raw_points;
+    polaris_sensor::StrayMarker raw_points;
 
     targets_cloud.header.frame_id = "/"+camera+"_link";
     targets_pose.header.frame_id = "/"+camera+"_link";
@@ -123,6 +124,7 @@ int main(int argc, char **argv)
         polaris.readDataBX(status,targets);
 
         std::map<int,TransformationDataBX>::iterator it = targets.begin();*/
+        
 	unsigned int i=0;
         for(it = targets.begin();it!=targets.end();++it)
         {
@@ -141,12 +143,18 @@ int main(int argc, char **argv)
             targets_cloud.points[i] = pt;
 	    i++;
         }
-        pts.push_back(ros::Time::now().toSec());
-        pts.push_back(ros::Time::now().toNSec());
-        raw_points.data = pts;
+        
+        for(int i = 0; i < pts.size(); i = i + 3){
+        	geometry_msgs::Point tmp;
+        	tmp.x = pts[i];
+        	tmp.y = pts[i + 1];
+        	tmp.z = pts[i + 2];
+        	raw_points.markers.push_back(tmp);
+        }
 
         targets_cloud.header.stamp = ros::Time::now();
         targets_pose.header.stamp = ros::Time::now();
+        raw_points.header.stamp = ros::Time::now();
         cloud_pub.publish(targets_cloud);
         pose_array_pub.publish(targets_pose);
         raw_pub.publish(raw_points);
