@@ -1,0 +1,10 @@
+<launch>
+	<arg name="PORT" default="/dev/ttyUSB0"/>
+	<arg name="ROM" default="$(find polaris_sensor)/rom/8700339.rom"/>
+	
+	<!-- Launch polaris sensor ros package need the path to the rom files --> 
+	<node name="polaris_sensor" pkg="polaris_sensor" type="polaris_sensor_node" >
+		<param name="port" type="string" value="$(arg PORT)"/>
+		<param name="roms" type="string" value="$(arg ROM)"/>
+	</node>
+</launch>
