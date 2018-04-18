@@ -144,6 +144,7 @@ int main(int argc, char **argv)
 	    i++;
         }
         
+        raw_points.markers.clear();
         for(int i = 0; i < pts.size(); i = i + 3){
         	geometry_msgs::Point tmp;
         	tmp.x = pts[i];
