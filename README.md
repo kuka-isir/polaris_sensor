@@ -10,12 +10,18 @@ Two parameters are needed, the .rom files and the port to which the sensor is co
 rosrun polaris_sensor polaris_sensor_node _roms:=/home/T0.rom _port:=/dev/ttyUSB0
 ```
 
-If you have **multiple** rom files :  
+If you have **multiple** rom files :
 ```bash
 rosrun polaris_sensor polaris_sensor_node _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0
 ```
 
-Attention: If you cannot get the permission of the usb port, you need to add the the rules file, you can follow this command:
+If you want to get the two rom relative transformation:
+```bash
+rosrun polaris_sensor polaris_sensor_double_node _roms:=/NDI/8700339.rom,/NDI/8700449.rom _port:=/dev/ttyUSB0 
+```
+The first the rom is the target corrdinate and the second rom is the base corrdinate, then you can subscribe the topic /polaris_sensor/targets_in_base to get the transformation
+
+**Attention**: If you cannot get the permission of the usb port, you need to add the the rules file, you can follow this command:
 To find out the idVendeor and idProduct number:
 ```bash
 lsusb
