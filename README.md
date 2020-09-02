@@ -7,13 +7,32 @@ This package contains a ROS-independant library to get information from the Pola
 ### Usage
 Two parameters are needed, the .rom files and the port to which the sensor is connected :
 ```bash
-rosrun polaris_sensor polaris_sensor _roms:=/home/T0.rom _port:=/dev/ttyUSB0
+rosrun polaris_sensor polaris_sensor_node _roms:=/home/T0.rom _port:=/dev/ttyUSB0
 ```
 
 If you have **multiple** rom files :  
 ```bash
-rosrun polaris_sensor polaris_sensor _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0
+rosrun polaris_sensor polaris_sensor_node _roms:="$(rospack find polaris_sensor)/rom/kuka.rom,$(rospack find polaris_sensor)/rom/T0.rom" _port:=/dev/ttyUSB0
 ```
+
+Attention: If you cannot get the permission of the usb port, you need to add the the rules file, you can follow this command:
+To find out the idVendeor and idProduct number:
+```bash
+lsusb
+```
+
+you can get the information like that:
+```bash
+Bus 003 Device 006: ID 1a86:7523 QinMing Electronics HL-340 USB Serial adapter
+```
+
+Then you need to add the rules file to /etc/udev/rules.d which file name you need to named "70-ttyusb.rules"
+And you need to add this to this file:
+```bash
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523",MODE="0666"
+```
+
+Then reinsert the ndi device
 
 >Note: The rate is 60Hz.
 
