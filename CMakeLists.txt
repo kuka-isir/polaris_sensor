@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   roscpp
   sensor_msgs
+  tf
   serial
   cmake_modules
 )
@@ -17,7 +18,7 @@ find_package(Boost COMPONENTS system filesystem REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES polaris_sensor
-  CATKIN_DEPENDS geometry_msgs roscpp serial sensor_msgs
+  CATKIN_DEPENDS geometry_msgs roscpp serial sensor_msgs tf
 )
 
 include_directories(include)

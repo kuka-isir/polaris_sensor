@@ -11,6 +11,9 @@
 #include <std_msgs/Float32.h>
 #include <ctime>
 #include <iostream>
+
+#include <tf/transform_broadcaster.h>  // !!! add the tf .h
+
 bool fexists(const std::string& filename) {
   std::ifstream ifile(filename.c_str());
   return (bool)ifile;
@@ -41,6 +44,8 @@ int main(int argc, char **argv)
     ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 1);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 1);
     ros::Publisher dt_pub = nh.advertise<std_msgs::Float32>("dt", 1);
+
+    tf::TransformBroadcaster broadcaster;  // !!!
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
@@ -117,6 +122,9 @@ int main(int argc, char **argv)
         polaris.readDataBX(status,targets);
 
         std::map<int,TransformationDataBX>::iterator it = targets.begin();*/
+
+        broadcaster.sendTransform(
+          tf::StampedTransform(tf::Transform(tf::Quaternion(0, 0, 0, 1), tf::Vector3(0.0, 0.0, 0.0)), ros::Time::now(), "world", "ndi_base_link"));  // !!! broadcast tf frame of ndi base link
 	unsigned int i=0;
         for(it = targets.begin();it!=targets.end();++it)
         {
@@ -140,6 +148,8 @@ int main(int argc, char **argv)
         targets_pose.header.stamp = ros::Time::now();
         cloud_pub.publish(targets_cloud);
         pose_array_pub.publish(targets_pose);
+        broadcaster.sendTransform(
+          tf::StampedTransform(tf::Transform(tf::Quaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w), tf::Vector3(pose.position.x, pose.position.y, pose.position.z)), ros::Time::now(), "ndi_base_link", "ndi_marker")); // !!! broadcast the tf frame of marker
 
         ros::spinOnce();
         loop_rate.sleep();
