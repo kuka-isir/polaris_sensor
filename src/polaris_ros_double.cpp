@@ -1,6 +1,7 @@
 // ROS
 #include <ros/ros.h>
 #include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Pose.h> // !!!
 #include <sensor_msgs/PointCloud.h>
 #include <serial/serial.h>
 #include <polaris_sensor/polaris_sensor.h>
@@ -12,7 +13,8 @@
 #include <ctime>
 #include <iostream>
 
-#include <tf/transform_broadcaster.h>  // !!! add the tf .h
+#include <tf/transform_broadcaster.h>  // !!! add the tf broadcaster.h
+#include <tf/transform_listener.h> // !!! add the tf listener.h
 
 bool fexists(const std::string& filename) {
   std::ifstream ifile(filename.c_str());
@@ -44,8 +46,10 @@ int main(int argc, char **argv)
     ros::Publisher pose_array_pub = nh.advertise<geometry_msgs::PoseArray>("targets", 1);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("targets_cloud", 1);
     ros::Publisher dt_pub = nh.advertise<std_msgs::Float32>("dt", 1);
+    ros::Publisher pose_pub = nh.advertise<geometry_msgs::Pose>("targets_in_base", 1);
 
-    tf::TransformBroadcaster broadcaster;  // !!!
+    tf::TransformBroadcaster broadcaster;  // !!! add the handle of broadcaster
+    tf::TransformListener listener; // !!! add the handle of listener
 
     std::string port("/dev/ttyUSB0");
     if(!nh.getParam("port",port))
@@ -61,7 +65,7 @@ int main(int argc, char **argv)
 
     std::vector<std::string> roms;
     std::string tmp;
-    if(!nh.getParam ("roms", tmp)){
+    if(!nh.getParam ( "roms", tmp)){
         ROS_FATAL("No rom provided, exiting.");
         return -1;
     }
@@ -80,6 +84,7 @@ int main(int argc, char **argv)
 
     geometry_msgs::PoseArray targets_pose;
     sensor_msgs::PointCloud targets_cloud;
+    geometry_msgs::Pose target_base_pose; // !!! add the relative pose
 
     targets_cloud.header.frame_id = "/"+camera+"_link";
     targets_pose.header.frame_id = "/"+camera+"_link";
@@ -97,6 +102,7 @@ int main(int argc, char **argv)
 
     std_msgs::Float32 dt;
     std::map<int,TransformationDataTX> targets;
+    float r_qx,r_qy,r_qz,r_qw,r_x,r_y,r_z; // !!! define the neccessary variable
     while (ros::ok())
     {
         /* Start TX */
@@ -144,14 +150,49 @@ int main(int argc, char **argv)
 	    i++;
         }
 	if (isnan(targets_pose.poses[0].position.x)){
-		ROS_WARN_STREAM("RoM0 is not in the range");}
-
+	  ROS_INFO("RoM0 is not in the range");}
+	else if (isnan(targets_pose.poses[1].position.x)){
+	  ROS_INFO("RoM1 is not in the range");}
         targets_cloud.header.stamp = ros::Time::now();
         targets_pose.header.stamp = ros::Time::now();
         cloud_pub.publish(targets_cloud);
         pose_array_pub.publish(targets_pose);
         broadcaster.sendTransform(
-          tf::StampedTransform(tf::Transform(tf::Quaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w), tf::Vector3(pose.position.x, pose.position.y, pose.position.z)), ros::Time::now(), "ndi_base_link", "ndi_marker")); // !!! broadcast the tf frame of marker
+          tf::StampedTransform(tf::Transform(tf::Quaternion(targets_pose.poses[0].orientation.x, targets_pose.poses[0].orientation.y, targets_pose.poses[0].orientation.z, targets_pose.poses[0].orientation.w), tf::Vector3(targets_pose.poses[0].position.x, targets_pose.poses[0].position.y, targets_pose.poses[0].position.z)), ros::Time::now(), "ndi_base_link", "ndi_marker_base")); // !!! broadcast the tf frame of marker_base
+
+        broadcaster.sendTransform(
+          tf::StampedTransform(tf::Transform(tf::Quaternion(targets_pose.poses[1].orientation.x, targets_pose.poses[1].orientation.y, targets_pose.poses[1].orientation.z, targets_pose.poses[1].orientation.w), tf::Vector3(targets_pose.poses[1].position.x, targets_pose.poses[1].position.y, targets_pose.poses[1].position.z)), ros::Time::now(), "ndi_base_link", "ndi_marker_target")); // !!! broadcast the tf frame of marker_target
+
+	//!!! publish the relative transformance between the base and target
+	tf::StampedTransform transform; // !!!
+        //!!!get the relation between ndi_marker_base and ndi_marker_target
+        try{
+          listener.waitForTransform("ndi_marker_target", "ndi_marker_base", ros::Time(0), ros::Duration(3.0));
+          listener.lookupTransform("ndi_marker_target", "ndi_marker_base", ros::Time(0), transform);
+           }
+        catch (tf::TransformException &ex) {
+          ROS_ERROR("%s",ex.what());
+          ros::Duration(1.0).sleep();
+        }
+	//!!! gettransform
+        r_x=transform.getOrigin().x();
+        r_y=transform.getOrigin().y();
+        r_z=transform.getOrigin().z();
+        //!!! getRotation
+        r_qx=transform.getRotation()[0];
+        r_qy=transform.getRotation()[1];
+        r_qz=transform.getRotation()[2];
+        r_qw=transform.getRotation()[3];
+	// !!! add to the topic message
+	target_base_pose.position.x = r_x;
+	target_base_pose.position.y = r_y;
+	target_base_pose.position.z = r_z;
+	target_base_pose.orientation.x = r_qx;
+	target_base_pose.orientation.y = r_qy;
+	target_base_pose.orientation.z = r_qz;
+	target_base_pose.orientation.w = r_qw;
+	// !!! publish the topic "target_in_base"
+	pose_pub.publish(target_base_pose);
 
         ros::spinOnce();
         loop_rate.sleep();

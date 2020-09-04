@@ -1,0 +1,13 @@
+<launch>
+
+    <node name="polais_ros_node" pkg="polaris_sensor" type="polaris_sensor_node" respawn="true" output="screen">
+
+      <!--Find the rom file that you want to track, you can also load mutiple roms by using ',' to split the different roms" /-->
+      <param name="roms" value="$(find polaris_sensor)/rom/8700339.rom"/>
+   
+      <!--connect the usb port of the pc -->
+      <param name="port" value="/dev/ttyUSB0"/>
+
+    </node>
+
+</launch>
