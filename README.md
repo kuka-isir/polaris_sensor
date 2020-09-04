@@ -48,4 +48,5 @@ Then reinsert the ndi device
 >Note: The rate is 60Hz.
 
 
-> Authors : Antoine Hoarau, Florian Richer
+Authors: Antoine Hoarau, Florian Richer
+Contributors: Boyang Ti
