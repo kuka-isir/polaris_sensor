@@ -149,7 +149,10 @@ int main(int argc, char **argv)
             targets_cloud.points[i] = pt;
 	    i++;
         }
-	
+	if (isnan(targets_pose.poses[0].position.x)){
+	  ROS_INFO("RoM0 is not in the range");}
+	else if (isnan(targets_pose.poses[1].position.x)){
+	  ROS_INFO("RoM1 is not in the range");}
         targets_cloud.header.stamp = ros::Time::now();
         targets_pose.header.stamp = ros::Time::now();
         cloud_pub.publish(targets_cloud);

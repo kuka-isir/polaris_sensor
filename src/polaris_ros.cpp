@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     tf::TransformBroadcaster broadcaster;  // !!!
 
     std::string port("/dev/ttyUSB0");
-    if(!nh.getParam("/port",port))
+    if(!nh.getParam("port",port))
         ROS_WARN("Using default port: %s",port.c_str());
     else
         ROS_INFO("Using port: %s",port.c_str());
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 
     std::vector<std::string> roms;
     std::string tmp;
-    if(!nh.getParam ( "/roms", tmp)){
+    if(!nh.getParam ("roms", tmp)){
         ROS_FATAL("No rom provided, exiting.");
         return -1;
     }
@@ -143,6 +143,8 @@ int main(int argc, char **argv)
             targets_cloud.points[i] = pt;
 	    i++;
         }
+	if (isnan(targets_pose.poses[0].position.x)){
+		ROS_WARN_STREAM("RoM0 is not in the range");}
 
         targets_cloud.header.stamp = ros::Time::now();
         targets_pose.header.stamp = ros::Time::now();
